@@ -1,7 +1,6 @@
 from typing import List
 from strawberry.experimental import pydantic
 from strawberry import auto
-from gql.types import ObjectIdScalar
 import models
 
 

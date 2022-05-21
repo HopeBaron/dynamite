@@ -9,46 +9,41 @@ from db import Database
 @strawberry.type
 class Query:
     @strawberry.field
-    def tables(self,  limit: int = 100) -> List[Table]:
-        return get_entity('tables', Table, limit)
+    def tables(self,  limit: int = 100) -> List[TableType]:
+        return get_entity(TableType, limit)
 
     @strawberry.field
-    def reports(self, limit: int = 100) -> List[Report]:
-        return get_entity('reports', Report, limit)
+    def reports(self, limit: int = 100) -> List[ReportType]:
+        return get_entity(ReportType, limit)
 
 
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    def create_table(self, input: TableInput) -> Table:
-        return create_entity('tables', input, Table)
+    def create_table(self, input: TableInput) -> TableType:
+        return create_entity(input, TableType)
 
     @strawberry.mutation
-    def create_report(self, input: ReportInput) -> Report:
-        return create_entity('reports', input, Report)
+    def create_report(self, input: ReportInput) -> ReportType:
+        return create_entity(input, ReportType)
 
 
-def transform(cls, entity):
-    pydantic = cls._pydantic_type
-    return cls.from_pydantic(pydantic(**entity))
+def get_entity(cls, limit=100):
+    return cls.find_many(limit=limit)
+    
 
-
-def get_entity(collection: str, cls, limit=100):
-    db = Database.instance()
-    _collection = db[collection]
-    entities = _collection.find().limit(limit)
-    return [transform(cls, entity) for entity in entities]
-
-
-def create_entity(collection: str, input: TableInput, cls):
-    db = Database.instance()
-    _collection = db[collection]
+def modelize_input(input):
     model_input = input.to_pydantic()
-    model_dict = model_input.dict(exclude_unset=True)
-    object_id = _collection.insert_one(model_dict).inserted_id
-    stored_object = _collection.find_one({'_id': object_id})
-    return transform(cls, stored_object)
+    return model_input.dict(exclude_unset=True)
+
+async def create_entity(input, cls):
+    model = modelize_input(input)
+    type = cls(**model)
+    obj = type.to_pydantic()
+    return await obj.insert()
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={
-                           models.PyObjectId: ObjectIdScalar})
+                           models.ColumnReferenceNotation: ColumnReferenceNotationScaler,
+                           PydanticObjectId: ObjectIdScalar
+                           })

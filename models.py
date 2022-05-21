@@ -1,71 +1,117 @@
+from dataclasses import dataclass
+from enum import Enum
+import re
+from beanie import Document
 from bson import ObjectId as BsonObjectId
 from bson.errors import InvalidId
-from typing import Any, List, Optional
-from pydantic import BaseModel as PydanticModel, validator
+from typing import List, Optional
+from pydantic import BaseModel, validator
 import pydantic
+from sqlalchemy import Column
+import strawberry
 
 
-class PyObjectId(BsonObjectId):
+@strawberry.enum
+class ConditionGroupOperation(Enum):
+    AND = "AND"
+    OR = "OR"
+    XOR = "XOR"
+
+
+@strawberry.enum
+class ConditionOperation(Enum):
+    EQ = "IN"
+    BETWEEN = "BETWEEN"
+
+
+@strawberry.enum
+class ColumnJoin(Enum):
+    LEFT = "LEFT JOIN"
+    RIGHT = "RIGHT JOIN"
+    INNER = "INNER JOIN"
+
+
+def normalize(value: str) -> str:
+    if re.match(r'^[A-Za-z0-9_]+$', value):
+        return value
+    message = "Only alphanumerics and underscores names are allowed."
+    raise ValueError(message)
+
+
+def column_ref(dot_notation) -> str:
+    return str(ColumnReferenceNotation.ref(dot_notation))
+
+
+class PydanticModel(BaseModel):
+    _normalize_ref_name = validator(
+        'ref_name', allow_reuse=True, check_fields=False)(normalize)
+
+
+@dataclass
+class ColumnReferenceNotation:
+    table: str
+    column: str
+
+    def __str__(self) -> str:
+        return f'{self.table}.{self.column}'
+
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        try:
-            return cls(v)
-        except InvalidId:
-            raise ValueError(f'{v} is not a valid ObjectId')
-
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type='string')
-
-
-class ObjectIdModel(PydanticModel):
-    id: Optional[PyObjectId] = pydantic.Field(alias='_id')
-
-    class Config:
-        json_encoders = {
-            PyObjectId: str
-        }
-        allow_population_by_field_name = True
+    def ref(cls, value: str):
+        stripped_dot_notation = value.strip().split('.')
+        if len(stripped_dot_notation) != 2:
+            message = "column reference must be in the form of 'table.column'"
+            raise Exception(message)
+        normalized_values = [normalize(v) for v in stripped_dot_notation]
+        return cls(*normalized_values)
 
 
 class TableColumn(PydanticModel):
     ref_name: str
     name: str
-    foreign_key: str
     type: int
 
 
-class Table(ObjectIdModel):
+class Table(PydanticModel, Document):
     ref_name: str
     name: str
     columns: List[TableColumn] = []
 
 
+class Join(PydanticModel):
+    type: ColumnJoin = ColumnJoin.INNER
+    columns: List[ColumnReferenceNotation]
+
+
 class Condition(PydanticModel):
-    operation: str
-    target: str
+    operation: ConditionOperation
+    sequence: Optional[int]
+    target: ColumnReferenceNotation
     value: List[str]
+
+    def __eq__(self, other):
+        return self.operation == other.operation \
+            and self.target == other.target \
+            and self.value == other.value \
+
 
 
 class ConditionGroup(PydanticModel):
-    operation: str
+    operation: ConditionGroupOperation
+    sequence: int | None = None
     conditions: List[Condition]
+    # condition_groups: "Optional[List[ConditionGroup]]"
 
 
 class ReportColumn(PydanticModel):
     index: int
     ref_name: str
     name: str
-    value: str
+    value: ColumnReferenceNotation
 
 
-class Report(ObjectIdModel):
+class Report(PydanticModel, Document):
     ref_name: str
     name: str
     columns: List[ReportColumn] = []
-    conditions: List[ConditionGroup] = []
-
+    condition_groups: List[ConditionGroup] = []
+    # joins: List[Join] = []

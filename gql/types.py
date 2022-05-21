@@ -1,46 +1,59 @@
+from typing import Dict, List, Optional
+from beanie import PydanticObjectId
 from strawberry.experimental import pydantic
 import models
 import strawberry
-from strawberry import auto
+from strawberry import LazyType, auto
 import bson
 
-from query import sql_query
+from query import QueryBuilder
 
 ObjectIdScalar = strawberry.scalar(
-    bson.ObjectId,
+    PydanticObjectId,
     serialize=lambda v: str(v),
-    parse_value=lambda v: bson.ObjectId(v),
+    parse_value=lambda v: PydanticObjectId(v),
     description="MongoDB ObjectId"
+)
+
+ColumnReferenceNotationScaler = strawberry.scalar(
+    models.ColumnReferenceNotation,
+    serialize=lambda v: str(v),
+    parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
+    description="String reperenting a colmn refrence in the form of 'table.column'"
 )
 
 
 @pydantic.type(model=models.TableColumn, all_fields=True)
-class TableColumn:
+class TableColumnType:
     pass
 
 
 @pydantic.type(models.Table, all_fields=True)
-class Table:
+class TableType:
     pass
-
 
 
 @pydantic.type(models.Condition, all_fields=True)
-class Condition:
+class ConditionType:
     pass
 
 
-@pydantic.type(models.ConditionGroup, all_fields=True)
-class ConditionGroup:
-    pass
+@pydantic.type(models.ConditionGroup)
+class ConditionGroupType:
+    operation: auto
+    sequence: auto
+    conditions: auto
+    # condition_groups: "Optional[List[ConditionGroupType]]"
 
 
 @pydantic.type(models.ReportColumn, all_fields=True)
-class ReportColumn:
+class ReportColumnType:
     pass
 
+
 @pydantic.type(models.Report, all_fields=True)
-class Report:
+class ReportType:
     @strawberry.field
     def query(self) -> str:
-        return sql_query(self)
+        query_builder = QueryBuilder()
+        return query_builder.sql_query(self)
