@@ -3,7 +3,6 @@ import strawberry
 from gql.input import *
 from gql.types import *
 import models
-from db import Database
 
 
 @strawberry.type

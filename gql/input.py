@@ -23,6 +23,9 @@ class ConditionInput:
 class ConditionGroupInput:
     pass
 
+@pydantic.input(models.Join, all_fields=True)
+class JoinInput:
+    pass
 
 @pydantic.input(models.ReportColumn, all_fields=True)
 class ReportColumnInput:

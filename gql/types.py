@@ -19,9 +19,11 @@ ColumnReferenceNotationScaler = strawberry.scalar(
     models.ColumnReferenceNotation,
     serialize=lambda v: str(v),
     parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
-    description="String reperenting a colmn refrence in the form of 'table.column'"
+    description="String representation of column reference 'table.column'"
 )
-
+@pydantic.type(model=models.Join, all_fields=True)
+class JoinType:
+    pass
 
 @pydantic.type(model=models.TableColumn, all_fields=True)
 class TableColumnType:
@@ -56,4 +58,4 @@ class ReportType:
     @strawberry.field
     def query(self) -> str:
         query_builder = QueryBuilder()
-        return query_builder.sql_query(self)
+        return query_builder.build(self)

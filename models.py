@@ -1,16 +1,19 @@
 from dataclasses import dataclass
+from email.policy import strict
 from enum import Enum
 import re
 from beanie import Document
-from bson import ObjectId as BsonObjectId
-from bson.errors import InvalidId
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 from pydantic import BaseModel, validator
 import pydantic
 from sqlalchemy import Column
 import strawberry
 
-
+@strawberry.enum
+class ColumnType(Enum):
+    INT = int
+    STRING = str
+    
 @strawberry.enum
 class ConditionGroupOperation(Enum):
     AND = "AND"
@@ -54,7 +57,7 @@ class ColumnReferenceNotation:
 
     def __str__(self) -> str:
         return f'{self.table}.{self.column}'
-
+    
     @classmethod
     def ref(cls, value: str):
         stripped_dot_notation = value.strip().split('.')
@@ -68,7 +71,7 @@ class ColumnReferenceNotation:
 class TableColumn(PydanticModel):
     ref_name: str
     name: str
-    type: int
+    type: ColumnType
 
 
 class Table(PydanticModel, Document):
@@ -79,8 +82,7 @@ class Table(PydanticModel, Document):
 
 class Join(PydanticModel):
     type: ColumnJoin = ColumnJoin.INNER
-    columns: List[ColumnReferenceNotation]
-
+    columns: List[List[ColumnReferenceNotation]]
 
 class Condition(PydanticModel):
     operation: ConditionOperation
@@ -97,9 +99,8 @@ class Condition(PydanticModel):
 
 class ConditionGroup(PydanticModel):
     operation: ConditionGroupOperation
-    sequence: int | None = None
+    sequence: Optional[int]
     conditions: List[Condition]
-    # condition_groups: "Optional[List[ConditionGroup]]"
 
 
 class ReportColumn(PydanticModel):
@@ -114,4 +115,4 @@ class Report(PydanticModel, Document):
     name: str
     columns: List[ReportColumn] = []
     condition_groups: List[ConditionGroup] = []
-    # joins: List[Join] = []
+    joins: List[Join] = []
