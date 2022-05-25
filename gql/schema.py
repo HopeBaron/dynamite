@@ -1,54 +1,53 @@
-from typing import overload
-from numpy import delete
 import strawberry
 
 from gql.input import *
 from gql.types import *
-import models
+from models import Report, Table
 
 
 @strawberry.type
 class Query:
     @strawberry.field
     def tables(self,  limit: int = 100) -> List[TableType]:
-        return get_entities(TableType, limit)
+        return get_entities(Table, limit)
 
     @strawberry.field
     def table(self, id: PydanticObjectId) -> TableType:
-        return get_entity(TableType, id)
+        return get_entity(Table, id)
 
     @strawberry.field
     def reports(self, limit: int = 100) -> List[ReportType]:
-        return get_entities(ReportType, limit)
+        return get_entities(Report, limit)
 
+    @strawberry.field
     def report(self, id: PydanticObjectId) -> ReportType:
-        return get_entity(TableType, id)
+        return get_entity(Report, id)
 
 
 @strawberry.type
 class Mutation:
     @strawberry.mutation
     def create_table(self, input: TableInput) -> TableType:
-        return create_entity(models.Table, input)
+        return create_entity(Table, input)
 
     @strawberry.mutation
     def create_report(self, input: ReportInput) -> ReportType:
-        return create_entity(models.Report, input)
+        return create_entity(Report, input)
 
     @strawberry.mutation
-    def delete_table(self, id: PydanticObjectId) -> TableType:
-        return delete_entity(models.Table, id)
+    def delete_table(self, id: PydanticObjectId) -> TableType | None:
+        return delete_entity(Table, id)
 
     @strawberry.mutation
-    def delete_report(self, id: PydanticObjectId) -> ReportType:
-        return delete_entity(models.Report, id)
+    def delete_report(self, id: PydanticObjectId) -> ReportType | None:
+        return delete_entity(Report, id)
 
 
 async def get_entities(cls, limit=100):
     return await cls.find_many(limit=limit)
 
 
-async def get_entity(cls, id: PydanticObjectId):
+async def get_entity(cls:Table , id: PydanticObjectId):
     return await cls.find_one(cls.id == id)
 
 
@@ -69,7 +68,9 @@ async def create_entity(cls, input):
 
 async def delete_entity(cls, id):
     entity = await get_entity(cls, id)
-    entity.delete()
+    if entity is None:
+        return None
+    await entity.delete()
     return entity
 
 

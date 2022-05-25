@@ -28,6 +28,11 @@ class ConditionGroupOperation(Enum):
 class ConditionOperation(Enum):
     EQ = "IN"
     BETWEEN = "BETWEEN"
+    GT = ">"
+    GTE = ">="
+    LT = "<"
+    LTE = "<="
+    
 
 
 @strawberry.enum
