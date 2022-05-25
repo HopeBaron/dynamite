@@ -1,10 +1,9 @@
-from typing import Dict, List, Optional
+from typing import List
 from beanie import PydanticObjectId
 from strawberry.experimental import pydantic
 import models
 import strawberry
-from strawberry import LazyType, auto
-import bson
+from strawberry import auto
 
 from query import QueryBuilder
 
@@ -14,30 +13,32 @@ ObjectIdScalar = strawberry.scalar(
     parse_value=lambda v: PydanticObjectId(v),
     description="MongoDB ObjectId"
 )
-
 ColumnReferenceNotationScaler = strawberry.scalar(
     models.ColumnReferenceNotation,
     serialize=lambda v: str(v),
     parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
     description="String representation of column reference 'table.column'"
 )
-@pydantic.type(model=models.Join, all_fields=True)
+@pydantic.type(model=models.Join)
 class JoinType:
-    pass
+    type: auto
+    columns: List[List[ColumnReferenceNotationScaler]]
 
 @pydantic.type(model=models.TableColumn, all_fields=True)
 class TableColumnType:
     pass
-
 
 @pydantic.type(models.Table, all_fields=True)
 class TableType:
     pass
 
 
-@pydantic.type(models.Condition, all_fields=True)
+@pydantic.type(models.Condition)
 class ConditionType:
-    pass
+    operation: auto
+    sequence: auto
+    target: ColumnReferenceNotationScaler
+    value: auto 
 
 
 @pydantic.type(models.ConditionGroup)
@@ -48,10 +49,12 @@ class ConditionGroupType:
     # condition_groups: "Optional[List[ConditionGroupType]]"
 
 
-@pydantic.type(models.ReportColumn, all_fields=True)
+@pydantic.type(models.ReportColumn)
 class ReportColumnType:
-    pass
-
+   index: auto
+   ref_name: auto
+   name: auto
+   value: ColumnReferenceNotationScaler 
 
 @pydantic.type(models.Report, all_fields=True)
 class ReportType:

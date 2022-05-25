@@ -1,3 +1,4 @@
+from gql.types import ColumnReferenceNotationScaler
 from typing import List
 from strawberry.experimental import pydantic
 from strawberry import auto
@@ -14,22 +15,31 @@ class TableInput:
     pass
 
 
-
-@pydantic.input(models.Condition, all_fields=True)
-class ConditionInput:
+@pydantic.input(models.ColumnReferenceNotation, all_fields=True)
+class ColumnReferenceNotationInput:
     pass
+@pydantic.input(models.Condition)
+class ConditionInput:
+    operation: auto
+    sequence: auto
+    target: ColumnReferenceNotationScaler
+    value: auto 
 
 @pydantic.input(models.ConditionGroup, all_fields=True)
 class ConditionGroupInput:
     pass
 
-@pydantic.input(models.Join, all_fields=True)
+@pydantic.input(models.Join)
 class JoinInput:
-    pass
+    type: auto
+    columns: List[List[ColumnReferenceNotationScaler]]
 
-@pydantic.input(models.ReportColumn, all_fields=True)
+@pydantic.input(models.ReportColumn)
 class ReportColumnInput:
-    pass
+   index: auto
+   ref_name: auto
+   name: auto
+   value: ColumnReferenceNotationScaler 
 
 
 @pydantic.input(models.Report, all_fields=True)
