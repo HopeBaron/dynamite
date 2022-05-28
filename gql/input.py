@@ -21,7 +21,7 @@ class ColumnReferenceNotationInput:
 @pydantic.input(models.Condition)
 class ConditionInput:
     operation: auto
-    sequence: auto
+    index: auto
     target: ColumnReferenceNotationScaler
     value: auto 
 

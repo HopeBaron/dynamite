@@ -36,15 +36,14 @@ class TableType:
 @pydantic.type(models.Condition)
 class ConditionType:
     operation: auto
-    sequence: auto
+    index: auto
     target: ColumnReferenceNotationScaler
-    value: auto 
-
-
+    value: auto
+    
 @pydantic.type(models.ConditionGroup)
 class ConditionGroupType:
     operation: auto
-    sequence: auto
+    index: auto
     conditions: auto
     # condition_groups: "Optional[List[ConditionGroupType]]"
 

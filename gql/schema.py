@@ -44,7 +44,7 @@ class Mutation:
 
 
 async def get_entities(cls, limit=100):
-    return await cls.find_many(limit=limit)
+    return await cls.find_many(limit=limit).to_list()
 
 
 async def get_entity(cls:Table , id: PydanticObjectId):

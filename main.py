@@ -1,6 +1,7 @@
 import asgiref
 from beanie import init_beanie
 from fastapi import FastAPI
+from fastapi.security import OAuth2PasswordBearer
 from strawberry.fastapi import GraphQLRouter
 from gql.schema import schema
 from models import Report, Table
@@ -12,7 +13,7 @@ async def init_database():
     # Init beanie with the Product document class
     await init_beanie(database=client.qb_db, document_models=[Table, Report])
 
-
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 graphql_app = GraphQLRouter(schema)
 
 app = FastAPI(on_startup=[init_database])

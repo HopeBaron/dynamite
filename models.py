@@ -1,11 +1,11 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from pprint import pprint
 import re
+import sys
+from tokenize import String
 from beanie import Document
-from typing import List, Optional
-from numpy import sort
+from typing import Any, List, Optional, TypeVar
 from pydantic import BaseModel, root_validator, validator
 import strawberry
 from asgiref.sync import async_to_sync
@@ -13,8 +13,8 @@ from asgiref.sync import async_to_sync
 
 @strawberry.enum
 class ColumnType(Enum):
-    INT = int
-    STRING = str
+    NUMBER = "Number"
+    STRING = "String"
 
 
 @strawberry.enum
@@ -26,13 +26,12 @@ class ConditionGroupOperation(Enum):
 
 @strawberry.enum
 class ConditionOperation(Enum):
-    EQ = "IN"
-    BETWEEN = "BETWEEN"
-    GT = ">"
-    GTE = ">="
-    LT = "<"
-    LTE = "<="
-    
+    EQ = ("IN", None)
+    BETWEEN = ("BETWEEN", 2)
+    GT = (">", 1)
+    GTE = (">=", 1)
+    LT = ("<", 1)
+    LTE = ("<=", 1)
 
 
 @strawberry.enum
@@ -47,6 +46,11 @@ def normalize(value: str) -> str:
         return value
     message = "Only alphanumerics and underscores names are allowed."
     raise ValueError(message)
+
+
+def sort_by_index(cls, v) -> List[Any]:
+    v.sort(key=lambda e: e.index)
+    return v
 
 
 def column_ref(dot_notation) -> str:
@@ -64,7 +68,7 @@ class PydanticModel(BaseModel):
 class TableColumn(PydanticModel):
     ref_name: str
     name: str
-    type: ColumnType
+    type: ColumnType = ColumnType.STRING
 
 
 class Table(PydanticModel, Document):
@@ -87,19 +91,21 @@ class ColumnReferenceNotation(PydanticModel):
         table, column = normalized_values
         return cls(table=table, column=column)
 
-    async def check(self):
-        raw_table, raw_column = self.table, self.column
-        table = await Table.find_one(Table.name == raw_table)
+    async def get_table(self) -> Table:
+        name = self.table
+        table = await Table.find_one(Table.ref_name == name)
         if not table:
-            table_not_found_message = f'table "{raw_table}" doesn\'t exist in schema'
-            raise ValueError(table_not_found_message)
-        
-        column_found = raw_column in (column.name for column in table.columns)
-        if column_found:
-            return self
-        
-        column_not_found_message = f'column "{raw_column}" doesn\'t exist in table "{raw_table}"'
-        raise ValueError(column_not_found_message)
+            no_table_message = f"table {name} doesn't exist. Please make sure you registered it."
+            raise ValueError(no_table_message)
+        return table
+
+    async def get_column(self) -> TableColumn:
+        table = await self.get_table()
+        column = next(filter(lambda column: column.ref_name == self.column, table.columns), None)
+        if not column:
+            no_column_message = f"column {self} doesn't exist."
+            raise ValueError(no_column_message)
+        return column
 
 
 class Join(PydanticModel):
@@ -109,25 +115,22 @@ class Join(PydanticModel):
 
 class Condition(PydanticModel):
     operation: ConditionOperation
-    sequence: Optional[int]
+    index: int = sys.maxsize
     target: ColumnReferenceNotation
     value: List[str]
-
-    def __eq__(self, other):
-        return self.operation == other.operation \
-            and self.target == other.target \
-            and self.value == other.value \
-
+    
 
 
 class ConditionGroup(PydanticModel):
     operation: ConditionGroupOperation
-    sequence: Optional[int]
+    index: int = sys.maxsize
     conditions: List[Condition]
+
+    _sort_condtions = validator('conditions', allow_reuse=True)(sort_by_index)
 
 
 class ReportColumn(PydanticModel):
-    index: int
+    index: int = sys.maxsize
     ref_name: str
     name: str
     value: ColumnReferenceNotation
@@ -139,7 +142,6 @@ class Report(PydanticModel, Document):
     columns: List[ReportColumn] = []
     condition_groups: List[ConditionGroup] = []
     joins: List[Join] = []
-    @validator('columns')
-    def sort_columns_by_index(cls, v):
-        v.sort(key=lambda e: e.index)
-        return v
+    _sort_condition_groups = validator(
+        'condition_groups', allow_reuse=True)(sort_by_index)
+    _sort_columns = validator('columns', allow_reuse=True)(sort_by_index)
