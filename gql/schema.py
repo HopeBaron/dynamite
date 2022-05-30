@@ -1,12 +1,21 @@
+from fastapi import Depends, HTTPException, status, APIRouter
+from fastapi.security import OAuth2PasswordBearer
 import strawberry
-
 from gql.input import *
 from gql.types import *
-from models import Report, Table
+from utils import *
+from models import Report, Table, User
 
 
 @strawberry.type
 class Query:
+    @strawberry.field
+    def users(self, limit: int = 100) -> List[UserType]:
+        return get_entities(User, limit)
+
+    def user(self, id: PydanticObjectId) -> UserType:
+        return get_entity(User, id)
+
     @strawberry.field
     def tables(self,  limit: int = 100) -> List[TableType]:
         return get_entities(Table, limit)
@@ -26,6 +35,11 @@ class Query:
 
 @strawberry.type
 class Mutation:
+    
+    @strawberry.mutation
+    def create_user(self, input: UserInput) -> UserType:
+        return create_entity(User, input)
+
     @strawberry.mutation
     def create_table(self, input: TableInput) -> TableType:
         return create_entity(Table, input)
@@ -41,37 +55,6 @@ class Mutation:
     @strawberry.mutation
     def delete_report(self, id: PydanticObjectId) -> ReportType | None:
         return delete_entity(Report, id)
-
-
-async def get_entities(cls, limit=100):
-    return await cls.find_many(limit=limit).to_list()
-
-
-async def get_entity(cls:Table , id: PydanticObjectId):
-    return await cls.find_one(cls.id == id)
-
-
-def modelize_input(input):
-    model_input = input.to_pydantic()
-    return model_input.dict(exclude_unset=True)
-
-
-def get_object(cls, input):
-    model = modelize_input(input)
-    return cls(**model)
-
-
-async def create_entity(cls, input):
-    obj = get_object(cls, input)
-    return await obj.insert()
-
-
-async def delete_entity(cls, id):
-    entity = await get_entity(cls, id)
-    if entity is None:
-        return None
-    await entity.delete()
-    return entity
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={

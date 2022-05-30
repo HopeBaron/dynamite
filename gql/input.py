@@ -4,13 +4,18 @@ from strawberry.experimental import pydantic
 from strawberry import auto
 import models
 
+# === Complete Inputs ===
+
+@pydantic.input(models.User, all_fields=True)
+class UserInput:
+    pass
 
 @pydantic.input(models.TableColumn, all_fields=True)
 class TableColumnInput:
     pass
 
 
-@pydantic.input(models.Table, all_fields=True)
+@pydantic.input(models.Table, fields=['ref_name','name', 'columns'])
 class TableInput:
     pass
 
@@ -45,3 +50,7 @@ class ReportColumnInput:
 @pydantic.input(models.Report, all_fields=True)
 class ReportInput:
     pass
+
+
+# === Partial Inputs ===  For edit requests
+
