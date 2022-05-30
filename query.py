@@ -1,4 +1,3 @@
-from typing import Iterable
 from sqlalchemy import text
 
 from models import *
@@ -23,6 +22,8 @@ class QueryBuilder:
     def type_args(self, type: ColumnType, values):
         if type is ColumnType.NUMBER:
             return [f'{float(value)}' for value in values]
+        if type is ColumnType.BOOLEAN:
+            return [str(value.to_lower() == 'true') for value in values]
         return [f'"{value}"' for value in values]
 
     async def condition_list(self, conditions: List[Condition]):

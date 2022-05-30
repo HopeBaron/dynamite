@@ -1,20 +1,21 @@
-import asyncio
 from enum import Enum
-from pprint import pprint
 import re
 import sys
-from tokenize import String
-from beanie import Document
-from typing import Any, List, Optional, TypeVar
-from pydantic import BaseModel, root_validator, validator
+from beanie import Document, Link, PydanticObjectId
+from typing import Any, List
+from pydantic import BaseModel, validator
 import strawberry
-from asgiref.sync import async_to_sync
 
-
+class User(Document):
+    username: str
+    name: str
+    password: str
+    
 @strawberry.enum
 class ColumnType(Enum):
     NUMBER = "Number"
     STRING = "String"
+    BOOLEAN = "Boolean"
 
 
 @strawberry.enum
@@ -75,6 +76,7 @@ class Table(PydanticModel, Document):
     ref_name: str
     name: str
     columns: List[TableColumn] = []
+    owner_id: PydanticObjectId
 
 
 class ColumnReferenceNotation(PydanticModel):

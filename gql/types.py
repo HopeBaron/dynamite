@@ -19,10 +19,14 @@ ColumnReferenceNotationScaler = strawberry.scalar(
     parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
     description="String representation of column reference 'table.column'"
 )
+@pydantic.type(model=models.User, fields=['username', 'name'])
+class UserType:
+    pass
 @pydantic.type(model=models.Join)
 class JoinType:
     type: auto
     columns: List[List[ColumnReferenceNotationScaler]]
+
 
 @pydantic.type(model=models.TableColumn, all_fields=True)
 class TableColumnType:
