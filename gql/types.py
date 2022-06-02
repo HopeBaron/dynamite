@@ -6,6 +6,7 @@ import strawberry
 from strawberry import auto
 
 from query import QueryBuilder
+# === Scalers ===
 
 ObjectIdScalar = strawberry.scalar(
     PydanticObjectId,
@@ -19,9 +20,28 @@ ColumnReferenceNotationScaler = strawberry.scalar(
     parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
     description="String representation of column reference 'table.column'"
 )
+# === Authentication models ===
+
 @pydantic.type(model=models.User, fields=['username', 'name'])
 class UserType:
     pass
+
+@strawberry.type
+class LoginSuccess:
+    user: UserType
+    token: str
+
+
+@strawberry.type
+class LoginError:
+    message: str
+
+
+LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
+
+# === Domain models ===
+
+
 @pydantic.type(model=models.Join)
 class JoinType:
     type: auto
@@ -43,6 +63,7 @@ class ConditionType:
     index: auto
     target: ColumnReferenceNotationScaler
     value: auto
+    
     
 @pydantic.type(models.ConditionGroup)
 class ConditionGroupType:

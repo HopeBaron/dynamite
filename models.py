@@ -1,16 +1,54 @@
-from enum import Enum
-import re
+from datetime import datetime
 import sys
-from beanie import Document, Link, PydanticObjectId
-from typing import Any, List
-from pydantic import BaseModel, validator
+from enum import Enum
+from typing import List
+from typing_extensions import Self
+import bcrypt
+
 import strawberry
+from beanie import Document, Link
+from pydantic import BaseModel, validator
+
+from utils import create_entity, get_entity, normalize, sort_by_index
+
 
 class User(Document):
     username: str
     name: str
     password: str
     
+    @classmethod
+    async def create_user(cls, input) -> Self:
+        username = input.username
+        matching_users = User.find(username=username).count()
+        if matching_users != 0:
+            raise ValueError("This username is already taken.")
+        encoded_password = input.password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(encoded_password, salt)
+        input.password = hashed
+        return create_entity(User, input)
+
+    async def validate_credintials(username: str, password: str):
+        user: User = await get_entity(User, username=username)
+        if not user:
+            return None
+        hashed_password = user.password.encode('utf-8')
+        encoded_password = password.encode('utf-8')
+        correct_password = bcrypt.checkpw(encoded_password, hashed_password)
+        if correct_password:
+            return user
+
+        return None
+
+
+class Session(Document):
+    token: str
+    user: Link[User]
+    used_since: datetime
+    exp: datetime
+
+
 @strawberry.enum
 class ColumnType(Enum):
     NUMBER = "Number"
@@ -26,13 +64,13 @@ class ConditionGroupOperation(Enum):
 
 
 @strawberry.enum
-class ConditionOperation(Enum):
-    EQ = ("IN", None)
-    BETWEEN = ("BETWEEN", 2)
-    GT = (">", 1)
-    GTE = (">=", 1)
-    LT = ("<", 1)
-    LTE = ("<=", 1)
+class WhereOperation(Enum):
+    EQ = "IN"
+    BETWEEN = "BETWEEN"
+    GT = ">"
+    GTE = ">="
+    LT = "<"
+    LTE = "<="
 
 
 @strawberry.enum
@@ -40,22 +78,6 @@ class ColumnJoin(Enum):
     LEFT = "LEFT JOIN"
     RIGHT = "RIGHT JOIN"
     INNER = "INNER JOIN"
-
-
-def normalize(value: str) -> str:
-    if re.match(r'^[A-Za-z0-9_]+$', value):
-        return value
-    message = "Only alphanumerics and underscores names are allowed."
-    raise ValueError(message)
-
-
-def sort_by_index(cls, v) -> List[Any]:
-    v.sort(key=lambda e: e.index)
-    return v
-
-
-def column_ref(dot_notation) -> str:
-    return str(ColumnReferenceNotation.ref(dot_notation))
 
 
 class PydanticModel(BaseModel):
@@ -76,7 +98,10 @@ class Table(PydanticModel, Document):
     ref_name: str
     name: str
     columns: List[TableColumn] = []
-    owner_id: PydanticObjectId
+
+
+def column_ref(dot_notation) -> str:
+    return str(ColumnReferenceNotation.ref(dot_notation))
 
 
 class ColumnReferenceNotation(PydanticModel):
@@ -103,7 +128,8 @@ class ColumnReferenceNotation(PydanticModel):
 
     async def get_column(self) -> TableColumn:
         table = await self.get_table()
-        column = next(filter(lambda column: column.ref_name == self.column, table.columns), None)
+        column = next(filter(lambda column: column.ref_name ==
+                      self.column, table.columns), None)
         if not column:
             no_column_message = f"column {self} doesn't exist."
             raise ValueError(no_column_message)
@@ -116,11 +142,10 @@ class Join(PydanticModel):
 
 
 class Condition(PydanticModel):
-    operation: ConditionOperation
+    operation: WhereOperation
     index: int = sys.maxsize
     target: ColumnReferenceNotation
     value: List[str]
-    
 
 
 class ConditionGroup(PydanticModel):

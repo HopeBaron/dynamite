@@ -1,60 +1,75 @@
-from fastapi import Depends, HTTPException, status, APIRouter
-from fastapi.security import OAuth2PasswordBearer
-import strawberry
+import bcrypt
+from graphql import is_valid_name_error
+from auth import Auth
+from gql.permissions import IsAuthenticated
+from models import Report, Session, Table, User
+from utils import *
+
 from gql.input import *
 from gql.types import *
-from utils import *
-from models import Report, Table, User
 
 
 @strawberry.type
 class Query:
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsAuthenticated])
     def users(self, limit: int = 100) -> List[UserType]:
         return get_entities(User, limit)
 
+    @strawberry.field(permission_classes=[IsAuthenticated])
     def user(self, id: PydanticObjectId) -> UserType:
-        return get_entity(User, id)
+        return get_entity(User, id=id)
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsAuthenticated])
     def tables(self,  limit: int = 100) -> List[TableType]:
         return get_entities(Table, limit)
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsAuthenticated])
     def table(self, id: PydanticObjectId) -> TableType:
-        return get_entity(Table, id)
+        return get_entity(Table, id=id)
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsAuthenticated])
     def reports(self, limit: int = 100) -> List[ReportType]:
         return get_entities(Report, limit)
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsAuthenticated])
     def report(self, id: PydanticObjectId) -> ReportType:
-        return get_entity(Report, id)
+        return get_entity(Report, id=id)
+
+    @strawberry.field
+    async def verify_token(self, token: str) -> bool:
+        return await Auth().verify_token(token)
 
 
 @strawberry.type
 class Mutation:
-    
-    @strawberry.mutation
-    def create_user(self, input: UserInput) -> UserType:
-        return create_entity(User, input)
 
     @strawberry.mutation
+    def create_user(self, input: UserInput) -> UserType:
+        return User.create_user(input)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     def create_table(self, input: TableInput) -> TableType:
         return create_entity(Table, input)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     def create_report(self, input: ReportInput) -> ReportType:
         return create_entity(Report, input)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     def delete_table(self, id: PydanticObjectId) -> TableType | None:
         return delete_entity(Table, id)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     def delete_report(self, id: PydanticObjectId) -> ReportType | None:
         return delete_entity(Report, id)
+
+    @strawberry.mutation
+    async def authenticate_user(self, username: str, password: str) -> LoginResult:
+        user = await User.validate_credintials(username, password)
+        if not user:
+            return LoginError("Username or password are invalid.")
+        session = await Auth().form_token(user)
+        return LoginSuccess(user, session.token)
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={

@@ -4,14 +4,23 @@ from models import *
 
 
 class QueryBuilder:
+    __limits = {
+        WhereOperation.BETWEEN: 2,
+        WhereOperation.EQ: 0,
+        WhereOperation.GT: 1,
+        WhereOperation.LT: 1,
+        WhereOperation.GTE: 1,
+        WhereOperation.LTE: 1,
+    }
 
     async def condition(self, condition: Condition):
         target = condition.target
         values = condition.value
         op_enum = condition.operation
-        (op, limit) = op_enum.value
+        op = op_enum.value
+        limit = self.__limits[op_enum]
         actual = len(values)
-        if limit is not None and actual != limit:
+        if limit != 0 and actual != limit:
             outside_limit_bounderies_message = \
             f"{limit} arguments expected for {op_enum} operation on column {target} recieved {actual}"
             raise ValueError(outside_limit_bounderies_message)
