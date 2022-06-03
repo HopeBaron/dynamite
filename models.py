@@ -8,6 +8,7 @@ import bcrypt
 import strawberry
 from beanie import Document, Link
 from pydantic import BaseModel, validator
+from builder import Query
 
 from utils import create_entity, get_entity, normalize, sort_by_index
 
