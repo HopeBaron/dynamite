@@ -41,8 +41,15 @@ class Auth:
         payload = decoded.payload
         data = payload['data']
         username = data["username"]
-        saved_session = await Session.find_one(Session.token == token)
+        saved_session: Session = await Session.find_one(Session.token == token)
+        if not saved_session:
+            return False
+        
         await saved_session.fetch_link(Session.user)
+        valid_token = saved_session.exp > datetime.utcnow()
+        if not valid_token:
+            await saved_session.delete()
+            return False
         return saved_session.user.username == username if saved_session else False
          
     
