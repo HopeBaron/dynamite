@@ -34,7 +34,7 @@ class ConditionInput:
 class ConditionGroupInput:
     pass
 
-@pydantic.input(models.Join)
+@pydantic.input(models.TableJoin)
 class JoinInput:
     type: auto
     columns: List[List[ColumnReferenceNotationScaler]]

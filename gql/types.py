@@ -5,7 +5,8 @@ import models
 import strawberry
 from strawberry import auto
 
-from query import QueryBuilder
+from report import ReportBuilder
+
 # === Scalers ===
 
 ObjectIdScalar = strawberry.scalar(
@@ -42,7 +43,7 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 # === Domain models ===
 
 
-@pydantic.type(model=models.Join)
+@pydantic.type(model=models.TableJoin)
 class JoinType:
     type: auto
     columns: List[List[ColumnReferenceNotationScaler]]
@@ -84,5 +85,4 @@ class ReportColumnType:
 class ReportType:
     @strawberry.field
     def query(self) -> str:
-        query_builder = QueryBuilder()
-        return query_builder.build(self)
+        return ReportBuilder.build(self)

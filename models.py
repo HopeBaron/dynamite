@@ -8,7 +8,6 @@ import bcrypt
 import strawberry
 from beanie import Document, Link
 from pydantic import BaseModel, validator
-from builder import Query
 
 from utils import create_entity, get_entity, normalize, sort_by_index
 
@@ -137,7 +136,7 @@ class ColumnReferenceNotation(PydanticModel):
         return column
 
 
-class Join(PydanticModel):
+class TableJoin(PydanticModel):
     type: ColumnJoin = ColumnJoin.INNER
     columns: List[List[ColumnReferenceNotation]]
 
@@ -169,7 +168,7 @@ class Report(PydanticModel, Document):
     name: str
     columns: List[ReportColumn] = []
     condition_groups: List[ConditionGroup] = []
-    joins: List[Join] = []
+    joins: List[TableJoin] = []
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
     _sort_columns = validator('columns', allow_reuse=True)(sort_by_index)
