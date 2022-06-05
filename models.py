@@ -8,7 +8,6 @@ import bcrypt
 import strawberry
 from beanie import Document, Link
 from pydantic import BaseModel, validator
-from builder import Query
 
 from utils import create_entity, get_entity, normalize, sort_by_index
 
@@ -21,14 +20,15 @@ class User(Document):
     @classmethod
     async def create_user(cls, input) -> Self:
         username = input.username
-        matching_users = User.find(username=username).count()
+        matching_users = await User.find(User.username==username).count()
+        print(matching_users)
         if matching_users != 0:
             raise ValueError("This username is already taken.")
         encoded_password = input.password.encode('utf-8')
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(encoded_password, salt)
         input.password = hashed
-        return create_entity(User, input)
+        return await create_entity(User, input)
 
     async def validate_credintials(username: str, password: str):
         user: User = await get_entity(User, username=username)
