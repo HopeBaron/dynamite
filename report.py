@@ -1,58 +1,56 @@
-from ntpath import join
-from typing import List, overload
+from functools import reduce
 from sql import Column, Join, Union, Table
 from sqlalchemy import all_
-from models import ColumnJoin, ColumnReferenceNotation, Condition, TableJoin, Report, ReportColumn
+from models import ColumnJoin, Report
 from sql.aggregate import *
 from sql.conditionals import *
-from s
 
 
 class ReportBuilder:
+    def __init__(self, report: Report) -> None:
+        self.report = report
+        
     joins_dict = {
         ColumnJoin.INNER: Table.join,
         ColumnJoin.LEFT: Table.left_join,
         ColumnJoin.RIGHT: Table.right_join
     }
-
-    def select_column(column: ReportColumn):
-        notation = column.value
-        sql_table = Table(notation.table)
-        attribute = sql_table.__getattr__(notation.column)
-        return sql_table.select(attribute)
-
-    def report_select_columns(report: Report):
-        select_column = ReportBuilder.select_column
-        selects = [select_column(column) for column in report.columns]
-        return Union(*selects)
-
-    def join(
-        first_column: ColumnReferenceNotation,
-        second_column: ColumnReferenceNotation,
-        join: ColumnJoin = ColumnJoin.INNER
-    ) -> Join:
-        type = join.type
-        func = ReportBuilder.joins_dict[type]
-        first_table, second_table = Table(
-            first_column.table),  Table(second_column.table)
-        first_column = first_table.__getattr__(first_column.column)
-        second_column = second_table.__getattr__(second_column.column)
-        return func(first_table, second_table, condition=first_column == second_column)
-    @overload
-    def join(joins: List[ColumnReferenceNotation], type: ColumnJoin = ColumnJoin.INNER):
-        if len(joins) == 0:
-            return None
-        first_column, second_column = joins.pop(), joins.pop()
-        remains = ReportBuilder.join(joins)
-        return ReportBuilder.join(first_column, second_column, join.type).join(remains)
-    @overload
-    def join(join: TableJoin):
-        return join(join.columns, join.type)
+    def extract_tables_and_columns(self, columns):
+        tables = set()
+        table_names = set()
+        attributes = []
+        for value in columns:
+            table_name = value.table
+            if table_name not in table_names:
+                table = Table(table_name)
+                tables.add(table)
+                table_names.add(table_name)
+            attribute = table.__getattr__(value.column)
+            attributes.append(attribute)
+        return tables, attributes
+     
+    def _columns(self):
+        columns = self.report.columns
+        notations = [column.value for column in columns]
+        tables, attributes = self.extract_tables_and_columns(notations)
+        join = reduce(lambda a, b: a.join(b), tables)
+        return join, attributes
     
-    def report_join(report: Report):
-        joins = report.joins
-    
-    def build(report: Report):
-        cols = ReportBuilder.report_select_columns(report)
-        joins = ReportBuilder.report_j
-        return str(cols.join())
+    def _joins(self, real_join):
+        for join in self.report.joins:
+            picked_join = ReportBuilder.joins_dict[join.type]
+            tables, attributes = self.extract_tables_and_columns(join.columns)
+            current_join = reduce(lambda a, b: picked_join(a,b), tables)
+            current_join.condition = reduce(lambda a, b: a == b, attributes)
+            real_join = real_join.join(current_join)
+        return real_join
+        
+        
+    def build(self):
+        report = self.report
+        real_join, real_attributes  = self._columns()
+        joins = self._joins(real_join)
+        query = joins.select(*real_attributes)
+        return str(query)
+                
+            
