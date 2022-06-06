@@ -18,16 +18,16 @@ class User(Document):
     password: str
     
     @classmethod
-    async def create_user(cls, input) -> Self:
+    async def create_user(cls, field, ) -> Self:
         username = input.username
-        matching_users = User.find(username=username).count()
+        matching_users = await User.find(username=username).count()
         if matching_users != 0:
             raise ValueError("This username is already taken.")
         encoded_password = input.password.encode('utf-8')
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(encoded_password, salt)
         input.password = hashed
-        return create_entity(User, input)
+        return await create_entity(User, input)
 
     async def validate_credintials(username: str, password: str):
         user: User = await get_entity(User, username=username)
@@ -138,7 +138,7 @@ class ColumnReferenceNotation(PydanticModel):
 
 class TableJoin(PydanticModel):
     type: ColumnJoin = ColumnJoin.INNER
-    columns: List[List[ColumnReferenceNotation]]
+    columns: List[ColumnReferenceNotation]
 
 
 class Condition(PydanticModel):

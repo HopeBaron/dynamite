@@ -1,7 +1,7 @@
 from functools import reduce
 from sql import Column, Join, Union, Table
 from sqlalchemy import all_
-from models import ColumnJoin, Report
+from models import ColumnJoin, Report, WhereOperation
 from sql.aggregate import *
 from sql.conditionals import *
 

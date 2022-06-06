@@ -46,7 +46,7 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 @pydantic.type(model=models.TableJoin)
 class JoinType:
     type: auto
-    columns: List[List[ColumnReferenceNotationScaler]]
+    columns: List[ColumnReferenceNotationScaler]
 
 
 @pydantic.type(model=models.TableColumn, all_fields=True)
@@ -85,4 +85,4 @@ class ReportColumnType:
 class ReportType:
     @strawberry.field
     def query(self) -> str:
-        return ReportBuilder.build(self)
+        return ReportBuilder(self).build()
