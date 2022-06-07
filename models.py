@@ -18,7 +18,7 @@ class User(Document):
     password: str
     
     @classmethod
-    async def create_user(cls, field, ) -> Self:
+    async def create_user(cls, input) -> Self:
         username = input.username
         matching_users = await User.find(username=username).count()
         if matching_users != 0:

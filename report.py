@@ -1,9 +1,9 @@
 from functools import reduce
 from typing import Tuple
 from graphql import OperationType
-from sql import Column, Join, Union, Table
+from sql import *
 from sqlalchemy import all_
-from models import ColumnJoin, Report, WhereOperation
+from models import ColumnJoin, Report
 from sql.aggregate import *
 from sql.conditionals import *
 
