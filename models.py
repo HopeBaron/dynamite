@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import reduce
 import sys
 from enum import Enum
 from typing import List
@@ -16,12 +17,11 @@ class User(Document):
     username: str
     name: str
     password: str
-    
+
     @classmethod
     async def create_user(cls, input) -> Self:
         username = input.username
-        matching_users = await User.find(User.username==username).count()
-        print(matching_users)
+        matching_users = await User.find(User.username == username).count()
         if matching_users != 0:
             raise ValueError("This username is already taken.")
         encoded_password = input.password.encode('utf-8')
@@ -173,3 +173,37 @@ class Report(PydanticModel, Document):
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
     _sort_columns = validator('columns', allow_reuse=True)(sort_by_index)
+
+
+class Permission(Enum):
+    TABLE_READ = 0b1
+    TABLE_WRITE = 0b10
+    REPORT_READ = 0b100
+    REPORT_WRITE = 0b1000
+    HOST = 0b10000
+    ADMIN = 0b100000
+
+
+class Permissions:
+    def __init__(self, permissions: List[Permission]) -> None:
+        self.bits = reduce(lambda a, b: a or b.value, permissions, 0)
+   
+    def bits(self):
+        return self.bits 
+    
+    @property
+    def permissions(self):
+        enums = Permission.list()
+        bits = self.bits
+        return [enum for enum in enums if bits & enum.value == enum.value]
+    
+class MutablePermissions(Permissions):
+    
+    def __and__(self, value: Permission):
+        self.bits = self.bits & value.value
+
+    def __or__(self, value: Permission):
+        self.bits = self.bits | value.value
+    
+    def immutate(self):
+        return Permissions(self.permissions)
