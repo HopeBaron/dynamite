@@ -1,8 +1,11 @@
+import pprint
 from datetime import datetime
 from functools import reduce
 import sys
 from enum import Enum
 from typing import List
+
+from aenum import bits
 from typing_extensions import Self
 import bcrypt
 
@@ -13,11 +16,62 @@ from pydantic import BaseModel, validator
 from utils import create_entity, get_entity, normalize, sort_by_index
 
 
+class PydanticModel(BaseModel):
+    _normalize_ref_name = validator(
+        'ref_name', allow_reuse=True, check_fields=False)(normalize)
+
+
+
+@strawberry.enum
+class Permission(Enum):
+    TABLE_READ = 0b1
+    TABLE_WRITE = 0b10
+    REPORT_READ = 0b100
+    REPORT_WRITE = 0b1000
+    HOST = 0b10000
+    ADMIN = 0b100000
+
+
+class Permissions(PydanticModel):
+    permissions_bits: int = 0
+
+    def __init__(self, **data):
+        permissions = data["permissions"]
+        if permissions is not List[Permission]:
+            ValueError("permissions must be int | List[Permission]")
+        bits_value = reduce(lambda acc, permission: acc | permission.value, permissions, 0)
+        super(PydanticModel, self).__init__(permissions_bits=bits_value)
+
+    @property
+    def permission_bits(self):
+        return self.permissions_bits
+
+    def __contains__(self, permission):
+        return permission in self.permissions
+
+    @property
+    def permissions(self):
+        bits = self.permission_bits
+        return set(enum for enum in Permission if bits & enum.value == enum.value)
+
+
+class MutablePermissions(Permissions):
+
+    def __and__(self, value: Permission):
+        self.bits = self.bits & value.value
+
+    def __or__(self, value: Permission):
+        self.bits = self.bits | value.value
+
+    def immutate(self):
+        return Permissions(self.permissions)
+
+
 class User(Document):
     username: str
     name: str
     password: str
-
+    permissions: Permissions
     @classmethod
     async def create_user(cls, input) -> Self:
         username = input.username
@@ -81,14 +135,6 @@ class ColumnJoin(Enum):
     INNER = "INNER JOIN"
 
 
-class PydanticModel(BaseModel):
-    _normalize_ref_name = validator(
-        'ref_name', allow_reuse=True, check_fields=False)(normalize)
-
-    def __str__(self) -> str:
-        return f'{self.table}.{self.column}'
-
-
 class TableColumn(PydanticModel):
     ref_name: str
     name: str
@@ -108,6 +154,9 @@ def column_ref(dot_notation) -> str:
 class ColumnReferenceNotation(PydanticModel):
     table: str
     column: str
+
+    def __str__(self) -> str:
+        return f'{self.table}.{self.column}'
 
     @classmethod
     def ref(cls, value: str):
@@ -130,7 +179,7 @@ class ColumnReferenceNotation(PydanticModel):
     async def get_column(self) -> TableColumn:
         table = await self.get_table()
         column = next(filter(lambda column: column.ref_name ==
-                      self.column, table.columns), None)
+                                            self.column, table.columns), None)
         if not column:
             no_column_message = f"column {self} doesn't exist."
             raise ValueError(no_column_message)
@@ -173,37 +222,3 @@ class Report(PydanticModel, Document):
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
     _sort_columns = validator('columns', allow_reuse=True)(sort_by_index)
-
-
-class Permission(Enum):
-    TABLE_READ = 0b1
-    TABLE_WRITE = 0b10
-    REPORT_READ = 0b100
-    REPORT_WRITE = 0b1000
-    HOST = 0b10000
-    ADMIN = 0b100000
-
-
-class Permissions:
-    def __init__(self, permissions: List[Permission]) -> None:
-        self.bits = reduce(lambda a, b: a or b.value, permissions, 0)
-   
-    def bits(self):
-        return self.bits 
-    
-    @property
-    def permissions(self):
-        enums = Permission.list()
-        bits = self.bits
-        return [enum for enum in enums if bits & enum.value == enum.value]
-    
-class MutablePermissions(Permissions):
-    
-    def __and__(self, value: Permission):
-        self.bits = self.bits & value.value
-
-    def __or__(self, value: Permission):
-        self.bits = self.bits | value.value
-    
-    def immutate(self):
-        return Permissions(self.permissions)

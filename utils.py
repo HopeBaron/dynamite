@@ -28,14 +28,9 @@ async def get_entity(cls: Document, **kwargs) -> Document:
     return await cls.find_one(kwargs)
 
 
-def modelize_input(input):
-    model_input = input.to_pydantic()
-    return model_input.dict(exclude_unset=True)
-
-
 def get_object(cls: Document, input) -> Document:
-    model = modelize_input(input)
-    return cls(**model)
+    model_input = input.to_pydantic()
+    return cls.parse_obj(model_input)
 
 
 async def create_entity(cls: Document, input) -> Document:
@@ -47,7 +42,7 @@ async def update_entity(cls: Document, id, input) -> Document:
     entity = get_entity(cls, id=id)
     if entity is None:
         return None
-    modelized_input = modelize_input(input)
+    modelized_input = get_object(cls, input)
     await entity.update(Set(**modelized_input))
 
 
