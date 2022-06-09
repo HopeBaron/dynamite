@@ -1,10 +1,11 @@
 from typing import List, Dict, Any
-from beanie import PydanticObjectId
-from strawberry.experimental import pydantic
-import models
-import strawberry
-from strawberry import auto
 
+import strawberry
+from beanie import PydanticObjectId
+from strawberry import auto
+from strawberry.experimental import pydantic
+
+import models
 from report import ReportBuilder
 
 # === Scalers ===
@@ -21,6 +22,8 @@ ColumnReferenceNotationScaler = strawberry.scalar(
     parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
     description="String representation of column reference 'table.column'"
 )
+
+
 # === Authentication models ===
 
 @pydantic.type(model=models.User)
@@ -37,6 +40,8 @@ class UserType:
         data.pop("id")
         data.pop("password")
         return UserType(**data)
+
+
 @strawberry.type
 class LoginSuccess:
     user: UserType
@@ -49,6 +54,7 @@ class LoginError:
 
 
 LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
+
 
 # === Domain models ===
 
@@ -63,6 +69,7 @@ class JoinType:
 class TableColumnType:
     pass
 
+
 @pydantic.type(models.Table, all_fields=True)
 class TableType:
     pass
@@ -74,8 +81,8 @@ class ConditionType:
     index: auto
     target: ColumnReferenceNotationScaler
     value: auto
-    
-    
+
+
 @pydantic.type(models.ConditionGroup)
 class ConditionGroupType:
     operation: auto
@@ -86,10 +93,11 @@ class ConditionGroupType:
 
 @pydantic.type(models.ReportColumn)
 class ReportColumnType:
-   index: auto
-   ref_name: auto
-   name: auto
-   value: ColumnReferenceNotationScaler 
+    index: auto
+    ref_name: auto
+    name: auto
+    value: ColumnReferenceNotationScaler
+
 
 @pydantic.type(models.Report, all_fields=True)
 class ReportType:

@@ -1,11 +1,9 @@
 from functools import reduce
 from typing import Tuple
-from graphql import OperationType
+
 from sql import *
-from sqlalchemy import all_
+
 from models import ColumnJoin, Report
-from sql.aggregate import *
-from sql.conditionals import *
 
 
 class ReportBuilder:
@@ -17,6 +15,7 @@ class ReportBuilder:
         ColumnJoin.LEFT: Table.left_join,
         ColumnJoin.RIGHT: Table.right_join
     }
+
     def extract_tables_and_columns(self, columns):
         tables = set()
         table_names = set()
@@ -38,7 +37,7 @@ class ReportBuilder:
         join = reduce(lambda a, b: a.join(b), tables)
         return join, attributes
 
-    def __reduce_conditions(self, acc, last_part, operator = None):
+    def __reduce_conditions(self, acc, last_part, operator=None):
         if isinstance(acc, Tuple):
             old_condition, old_last_part = acc
             (new_condition, _) = self.__reduce_conditions(old_last_part, last_part)

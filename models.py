@@ -1,15 +1,14 @@
-from datetime import datetime
-from functools import reduce
 import sys
+from datetime import datetime
 from enum import Enum
+from functools import reduce
 from typing import List
 
-from typing_extensions import Self
 import bcrypt
-
 import strawberry
 from beanie import Document, Link
 from pydantic import BaseModel, validator
+from typing_extensions import Self
 
 from utils import create_entity, get_entity, normalize, sort_by_index
 
@@ -17,7 +16,6 @@ from utils import create_entity, get_entity, normalize, sort_by_index
 class PydanticModel(BaseModel):
     _normalize_ref_name = validator(
         'ref_name', allow_reuse=True, check_fields=False)(normalize)
-
 
 
 @strawberry.enum
@@ -61,7 +59,7 @@ class MutablePermissions(Permissions):
     def __or__(self, value: Permission):
         self.bits = self.bits | value.value
 
-    def immutate(self):
+    def freeze(self):
         return Permissions(self.permissions)
 
 
@@ -70,6 +68,7 @@ class User(Document):
     name: str
     password: str
     permissions: Permissions
+
     @classmethod
     async def create_user(cls, input) -> Self:
         username = input.username
@@ -177,7 +176,7 @@ class ColumnReferenceNotation(PydanticModel):
     async def get_column(self) -> TableColumn:
         table = await self.get_table()
         column = next(filter(lambda column: column.ref_name ==
-                      self.column, table.columns), None)
+                                            self.column, table.columns), None)
         if not column:
             no_column_message = f"column {self} doesn't exist."
             raise ValueError(no_column_message)

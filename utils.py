@@ -1,10 +1,7 @@
-
 import re
 from typing import Any, List, Set
 
-import bcrypt
 from beanie import Document
-
 
 
 def normalize(value: str) -> str:
@@ -17,7 +14,6 @@ def normalize(value: str) -> str:
 def sort_by_index(cls, v) -> List[Any]:
     v.sort(key=lambda e: e.index)
     return v
-
 
 
 async def get_entities(cls: Document, limit=100) -> List[Document]:

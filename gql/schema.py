@@ -1,12 +1,10 @@
-import bcrypt
-from graphql import is_valid_name_error
 from auth import Auth
-from gql.permissions import IsAuthenticated
-from models import Report, Session, Table, User
-from utils import *
-
+from auth import Auth
 from gql.input import *
+from gql.permissions import IsAuthenticated
 from gql.types import *
+from models import Report, Table, User
+from utils import *
 
 
 @strawberry.type
@@ -20,7 +18,7 @@ class Query:
         return get_entity(User, id=id)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def tables(self,  limit: int = 100) -> List[TableType]:
+    def tables(self, limit: int = 100) -> List[TableType]:
         return get_entities(Table, limit)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
@@ -73,6 +71,6 @@ class Mutation:
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={
-                           models.ColumnReferenceNotation: ColumnReferenceNotationScaler,
-                           PydanticObjectId: ObjectIdScalar
-                           })
+    models.ColumnReferenceNotation: ColumnReferenceNotationScaler,
+    PydanticObjectId: ObjectIdScalar
+})
