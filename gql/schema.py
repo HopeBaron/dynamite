@@ -44,8 +44,8 @@ class Query:
 class Mutation:
 
     @strawberry.mutation
-    def create_user(self, input: UserInput) -> UserType:
-        return User.create_user(input)
+    async def create_user(self, input: UserInput) -> UserType:
+        return UserType.from_pydantic(await User.create_user(input))
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     def create_table(self, input: TableInput) -> TableType:

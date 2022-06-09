@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from beanie import PydanticObjectId
 from strawberry.experimental import pydantic
 import models
@@ -23,10 +23,20 @@ ColumnReferenceNotationScaler = strawberry.scalar(
 )
 # === Authentication models ===
 
-@pydantic.type(model=models.User, fields=['username', 'name'])
+@pydantic.type(model=models.User)
 class UserType:
-    pass
+    username: auto
+    name: auto
+    permissions: List[models.Permission]
 
+    @staticmethod
+    def from_pydantic(instance: models.User, extra: Dict[str, Any] = None) -> "UserType":
+        data = instance.dict()
+        permissions = data.pop("permissions")
+        data["permissions"] = instance.permissions.permissions
+        data.pop("id")
+        data.pop("password")
+        return UserType(**data)
 @strawberry.type
 class LoginSuccess:
     user: UserType

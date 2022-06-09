@@ -1,14 +1,25 @@
+import dataclasses
+import pprint
+
 from gql.types import ColumnReferenceNotationScaler
-from typing import List
+from typing import List, Set
 from strawberry.experimental import pydantic
 from strawberry import auto
 import models
 
 # === Complete Inputs ===
 
-@pydantic.input(models.User, all_fields=True)
+@pydantic.input(models.User)
 class UserInput:
-    pass
+    username: auto
+    name: auto
+    password: auto
+    permissions: List[models.Permission]
+    def to_pydantic(self):
+        data = dataclasses.asdict(self)
+        permissions_set = data.pop("permissions")
+        permissions = models.Permissions(permissions=permissions_set)
+        return models.User(permissions=permissions, **data)
 
 @pydantic.input(models.TableColumn, all_fields=True)
 class TableColumnInput:
