@@ -20,8 +20,7 @@ class User(Document):
     @classmethod
     async def create_user(cls, input) -> Self:
         username = input.username
-        matching_users = await User.find(User.username==username).count()
-        print(matching_users)
+        matching_users = await User.find(username=username).count()
         if matching_users != 0:
             raise ValueError("This username is already taken.")
         encoded_password = input.password.encode('utf-8')
@@ -137,9 +136,9 @@ class ColumnReferenceNotation(PydanticModel):
         return column
 
 
-class Join(PydanticModel):
+class TableJoin(PydanticModel):
     type: ColumnJoin = ColumnJoin.INNER
-    columns: List[List[ColumnReferenceNotation]]
+    columns: List[ColumnReferenceNotation]
 
 
 class Condition(PydanticModel):
@@ -169,7 +168,7 @@ class Report(PydanticModel, Document):
     name: str
     columns: List[ReportColumn] = []
     condition_groups: List[ConditionGroup] = []
-    joins: List[Join] = []
+    joins: List[TableJoin] = []
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
     _sort_columns = validator('columns', allow_reuse=True)(sort_by_index)
