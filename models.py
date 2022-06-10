@@ -60,7 +60,7 @@ class MutablePermissions(Permissions):
         self.bits = self.bits | value.value
 
     def freeze(self):
-        return Permissions(self.permissions)
+        return Permissions(permissions=self.permissions)
 
 
 class User(Document):
@@ -81,6 +81,7 @@ class User(Document):
         input.password = hashed
         return await create_entity(User, input)
 
+    @staticmethod
     async def validate_credintials(username: str, password: str):
         user: User = await get_entity(User, username=username)
         if not user:

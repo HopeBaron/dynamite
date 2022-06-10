@@ -14,24 +14,24 @@ class Query:
         return get_entities(User, limit)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def user(self, id: PydanticObjectId) -> UserType:
-        return get_entity(User, id=id)
+    def user(self, document_id: PydanticObjectId) -> UserType:
+        return get_entity(User, document_id=document_id)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     def tables(self, limit: int = 100) -> List[TableType]:
         return get_entities(Table, limit)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def table(self, id: PydanticObjectId) -> TableType:
-        return get_entity(Table, id=id)
+    def table(self, document_id: PydanticObjectId) -> TableType:
+        return get_entity(Table, document_id=document_id)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     def reports(self, limit: int = 100) -> List[ReportType]:
         return get_entities(Report, limit)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def report(self, id: PydanticObjectId) -> ReportType:
-        return get_entity(Report, id=id)
+    def report(self, document_id: PydanticObjectId) -> ReportType:
+        return get_entity(Report, document_id=document_id)
 
     @strawberry.field
     async def verify_token(self, token: str) -> bool:
@@ -46,20 +46,20 @@ class Mutation:
         return UserType.from_pydantic(await User.create_user(input))
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    def create_table(self, input: TableInput) -> TableType:
-        return create_entity(Table, input)
+    async def create_table(self, input: TableInput) -> TableType:
+        return await create_entity(Table, input)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    def create_report(self, input: ReportInput) -> ReportType:
-        return create_entity(Report, input)
+    async def create_report(self, input: ReportInput) -> ReportType:
+        return await create_entity(Report, input)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    def delete_table(self, id: PydanticObjectId) -> TableType | None:
-        return delete_entity(Table, id)
+    async def delete_table(self, id: PydanticObjectId) -> TableType | None:
+        return await delete_entity(Table, id)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    def delete_report(self, id: PydanticObjectId) -> ReportType | None:
-        return delete_entity(Report, id)
+    async def delete_report(self, id: PydanticObjectId) -> ReportType | None:
+        return await delete_entity(Report, id)
 
     @strawberry.mutation
     async def authenticate_user(self, username: str, password: str) -> LoginResult:
