@@ -19,7 +19,9 @@ async def init_database():
 
 async def get_user(request: Request) -> models.User | None:
     print("Request", request)
-    token = request.headers['Authorization']
+    token = request.headers.get('Authorization', None)
+    if token is None:
+        return None
     return await Auth().verify_token(token)
 
 

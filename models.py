@@ -29,18 +29,14 @@ class Permission(Enum):
 
 
 class Permissions(PydanticModel):
-    permissions_bits: int = 0
+    permission_bits: int = 0
 
     def __init__(self, **data):
-        permissions = data["permissions"]
-        if permissions is not List[Permission]:
-            ValueError("permissions must be int | List[Permission]")
-        bits_value = reduce(lambda acc, permission: acc | permission.value, permissions, 0)
-        super(PydanticModel, self).__init__(permissions_bits=bits_value)
-
-    @property
-    def permission_bits(self):
-        return self.permissions_bits
+        permissions = data["permission_bits"]
+        bits = permissions
+        if permissions is List[Permission]:
+            bits = reduce(lambda acc, permission: acc | permission.value, permissions, 0)
+        super(PydanticModel, self).__init__(permission_bits=bits)
 
     def __contains__(self, permission):
         return permission in self.permissions
@@ -60,7 +56,7 @@ class MutablePermissions(Permissions):
         self.bits = self.bits | value.value
 
     def freeze(self):
-        return Permissions(permissions=self.permissions)
+        return Permissions(permission_bits=self.permissions)
 
 
 class User(Document):

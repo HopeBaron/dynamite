@@ -20,7 +20,7 @@ class UserInput:
     def to_pydantic(self):
         data = dataclasses.asdict(self)
         permissions_set = data.pop("permissions")
-        permissions = models.Permissions(permissions=permissions_set)
+        permissions = models.Permissions(permission_bits=permissions_set)
         return models.User(permissions=permissions, **data)
 
 
