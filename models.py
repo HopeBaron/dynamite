@@ -114,12 +114,14 @@ class ConditionGroupOperation(Enum):
 
 @strawberry.enum
 class WhereOperation(Enum):
-    EQ = "IN"
+    EQ = "EQ"
+    IN = "IN"
+
     BETWEEN = "BETWEEN"
-    GT = ">"
-    GTE = ">="
-    LT = "<"
-    LTE = "<="
+    GT = "GT"
+    GTE = "GTE"
+    LT = "LT"
+    LTE = "lTE"
 
 
 @strawberry.enum
