@@ -57,6 +57,7 @@ class ReportBuilder:
         WhereOperation.LTE: Expression.__le__,
         WhereOperation.GTE: Expression.__ge__,
         WhereOperation.IN: Expression.in_,
+        WhereOperation.NEQ: Expression.__ne__
     }
 
     def _columns(self):
@@ -88,7 +89,7 @@ class ReportBuilder:
                 where = mapped_function(attribute, condition.value)
                 wheres.append(where)
             partial_reduce = partial(reduce_conditions, operator=operation)
-            (combined_conditions, _) = reduce(partial_reduce, wheres)
+            combined_conditions= reduce(partial_reduce, wheres)
             if final_wheres is None:
                 final_wheres = combined_conditions
             joiner = ReportBuilder.group_operators_dict[operation]

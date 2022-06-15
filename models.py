@@ -122,6 +122,7 @@ class WhereOperation(Enum):
     GTE = "GTE"
     LT = "LT"
     LTE = "lTE"
+    NEQ = "NEQ"
 
 
 @strawberry.enum
