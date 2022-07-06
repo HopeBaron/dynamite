@@ -10,6 +10,7 @@ from beanie import Document, Link
 from pydantic import BaseModel, validator
 from typing_extensions import Self
 
+from enums import PropertyType, ColumnJoin, WhereOperation, ConditionGroupOperation
 from utils import create_entity, get_entity, normalize, sort_by_index
 
 
@@ -34,11 +35,11 @@ class User(Document):
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(encoded_password, salt)
         input.password = hashed
-        return await create_entity(User, input)
+        return await create_entity(Self, input)
 
     @staticmethod
     async def validate_credintials(username: str, password: str):
-        user: User = await get_entity(User, username=username)
+        user: User = await get_entity(Self, username=username)
         if not user:
             return None
         hashed_password = user.password.encode('utf-8')
@@ -57,43 +58,10 @@ class Session(Document):
     exp: datetime
 
 
-@strawberry.enum
-class PropertyType(Enum):
-    NUMBER = "Number"
-    STRING = "String"
-    BOOLEAN = "Boolean"
-
-
-@strawberry.enum
-class ConditionGroupOperation(Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
-
-
-@strawberry.enum
-class WhereOperation(Enum):
-    EQ = "EQ"
-    IN = "IN"
-
-    BETWEEN = "BETWEEN"
-    GT = "GT"
-    GTE = "GTE"
-    LT = "LT"
-    LTE = "lTE"
-    NEQ = "NEQ"
-
-
-@strawberry.enum
-class ColumnJoin(Enum):
-    LEFT = "LEFT JOIN"
-    RIGHT = "RIGHT JOIN"
-    INNER = "INNER JOIN"
-
 
 class Property(DatabaseModel):
     type: PropertyType = PropertyType.STRING
-    reference: "PropertyReference" | None = None
+    reference: "PropertyReference | None" = None
 
 
 class EntityType(Enum):
@@ -111,6 +79,10 @@ class Entity(DatabaseModel, Document):
 
     def __getattr__(self, item):
         return next(filter(lambda prop: prop.database_name == item, self.properties), None)
+
+    @property
+    def hidden(self):
+        return self.type == EntityType.PIVOT
 
 
 def stringify_property_reference(dot_notation) -> str:
@@ -148,6 +120,22 @@ def property_reference(cls, value: str):
     normalized_values = [normalize(v) for v in stripped_dot_notation]
     entity, prop = normalized_values
     return cls(entity=entity, property=prop)
+
+
+class Tree(Document):
+    children: List[Entity]
+
+    @validator('children', pre=True)
+    def prioritize_pivots(self, value):
+        def sort(element: Entity):
+            return 0 if element.type == EntityType.PIVOT else 1
+
+        value.sort(key=sort)
+        return value
+
+    @validator('children', each_item=True)
+    def organize_tree(self, value: Entity):
+        pass
 
 
 class TableJoin(BaseModel):
