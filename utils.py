@@ -13,9 +13,9 @@ def normalize(value: str) -> str:
     raise ValueError(message)
 
 
-def sort_by_index(cls, v) -> List[Any]:
-    v.sort(key=lambda e: e.index)
-    return v
+def sort_by_index(cls, value) -> List[Any]:
+    value.sort(key=lambda e: e.index)
+    return value
 
 
 async def get_entities(cls: Document, limit=100) -> List[DocumentType]:

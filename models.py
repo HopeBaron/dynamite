@@ -2,7 +2,7 @@ import sys
 from datetime import datetime
 from enum import Enum
 from functools import reduce
-from typing import List
+from typing import List, Optional
 
 import bcrypt
 import strawberry
@@ -13,57 +13,16 @@ from typing_extensions import Self
 from utils import create_entity, get_entity, normalize, sort_by_index
 
 
-class PydanticModel(BaseModel):
-    _normalize_ref_name = validator(
-        'ref_name', allow_reuse=True, check_fields=False)(normalize)
+class DatabaseModel(BaseModel):
+    database_name: str
+    display_name: str
 
-
-@strawberry.enum
-class Permission(Enum):
-    TABLE_READ = 0b1
-    TABLE_WRITE = 0b10
-    REPORT_READ = 0b100
-    REPORT_WRITE = 0b1000
-    HOST = 0b10000
-    ADMIN = 0b100000
-
-
-class Permissions(PydanticModel):
-    permission_bits: int = 0
-
-    def __init__(self, **data):
-        permissions = data["permission_bits"]
-        bits = permissions
-        if permissions is List[Permission]:
-            bits = reduce(lambda acc, permission: acc | permission.value, permissions, 0)
-        super(PydanticModel, self).__init__(permission_bits=bits)
-
-    def __contains__(self, permission):
-        return permission in self.permissions
-
-    @property
-    def permissions(self):
-        bits = self.permission_bits
-        return set(enum for enum in Permission if bits & enum.value == enum.value)
-
-
-class MutablePermissions(Permissions):
-
-    def __and__(self, value: Permission):
-        self.bits = self.bits & value.value
-
-    def __or__(self, value: Permission):
-        self.bits = self.bits | value.value
-
-    def freeze(self):
-        return Permissions(permission_bits=self.permissions)
+    _normalize_database_name = validator('database_name', allow_reuse=True)(normalize)
 
 
 class User(Document):
     username: str
-    name: str
     password: str
-    permissions: Permissions
 
     @classmethod
     async def create_user(cls, input) -> Self:
@@ -99,7 +58,7 @@ class Session(Document):
 
 
 @strawberry.enum
-class ColumnType(Enum):
+class PropertyType(Enum):
     NUMBER = "Number"
     STRING = "String"
     BOOLEAN = "Boolean"
@@ -132,87 +91,91 @@ class ColumnJoin(Enum):
     INNER = "INNER JOIN"
 
 
-class TableColumn(PydanticModel):
-    ref_name: str
-    name: str
-    type: ColumnType = ColumnType.STRING
+class Property(DatabaseModel):
+    type: PropertyType = PropertyType.STRING
+    reference: "PropertyReference" | None = None
 
 
-class Table(PydanticModel, Document):
-    ref_name: str
-    name: str
-    columns: List[TableColumn] = []
+class EntityType(Enum):
+    MODEL = "Model"
+    PIVOT = "Pivot"
 
 
-def column_ref(dot_notation) -> str:
-    return str(ColumnReferenceNotation.ref(dot_notation))
+class Entity(DatabaseModel, Document):
+    type: EntityType = EntityType.MODEL
+    properties: List[Property] = []
+
+    @validator("properties")
+    def prioritize_references(self, value):
+        value.sort(key=lambda prop: prop.reference)
+
+    def __getattr__(self, item):
+        return next(filter(lambda prop: prop.database_name == item, self.properties), None)
 
 
-class ColumnReferenceNotation(PydanticModel):
-    table: str
-    column: str
+def stringify_property_reference(dot_notation) -> str:
+    return str(property_reference(dot_notation))
+
+
+class PropertyReference(BaseModel):
+    entity: str
+    property: str
 
     def __str__(self) -> str:
-        return f'{self.table}.{self.column}'
+        return f'{self.entity}.{self.property}'
 
-    @classmethod
-    def ref(cls, value: str):
-        stripped_dot_notation = value.strip().split('.')
-        if len(stripped_dot_notation) != 2:
-            message = f"column reference must be in the form of 'table.column' but was {value}"
-            raise Exception(message)
-        normalized_values = [normalize(v) for v in stripped_dot_notation]
-        table, column = normalized_values
-        return cls(table=table, column=column)
-
-    async def get_table(self) -> Table:
-        name = self.table
-        table = await Table.find_one(Table.ref_name == name)
-        if not table:
-            no_table_message = f"table {name} doesn't exist. Please make sure you registered it."
+    async def get_entity(self) -> Entity:
+        name = self.entity
+        entity = await Entity.find_one(Entity.database_name == name)
+        if not entity:
+            no_table_message = f"Entity {name} doesn't exist. Please make sure you registered it."
             raise ValueError(no_table_message)
-        return table
+        return entity
 
-    async def get_column(self) -> TableColumn:
-        table = await self.get_table()
-        column = next(filter(lambda column: column.ref_name ==
-                                            self.column, table.columns), None)
-        if not column:
-            no_column_message = f"column {self} doesn't exist."
-            raise ValueError(no_column_message)
-        return column
+    async def get_property(self) -> Property:
+        prop = await self.get_entity().__getattribute__(self.property)
+        if not prop:
+            no_property_message = f"property {self} doesn't exist."
+            raise ValueError(no_property_message)
+        return prop
 
 
-class TableJoin(PydanticModel):
+def property_reference(cls, value: str):
+    stripped_dot_notation = value.strip().split('.')
+    if len(stripped_dot_notation) != 2:
+        message = f"column reference must be in the form of 'table.column' but was {value}"
+        raise Exception(message)
+    normalized_values = [normalize(v) for v in stripped_dot_notation]
+    entity, prop = normalized_values
+    return cls(entity=entity, property=prop)
+
+
+class TableJoin(BaseModel):
     type: ColumnJoin = ColumnJoin.INNER
-    columns: List[ColumnReferenceNotation]
+    columns: List[PropertyReference]
 
 
-class Condition(PydanticModel):
+class Condition(BaseModel):
     operation: WhereOperation
     index: int = sys.maxsize
-    target: ColumnReferenceNotation
+    target: PropertyReference
     value: List[str]
 
 
-class ConditionGroup(PydanticModel):
+class ConditionGroup(BaseModel):
     operation: ConditionGroupOperation
     index: int = sys.maxsize
     conditions: List[Condition]
 
-    _sort_condtions = validator('conditions', allow_reuse=True)(sort_by_index)
+    _sort_conditions = validator('conditions', allow_reuse=True)(sort_by_index)
 
 
-class ReportColumn(PydanticModel):
-    index: int = sys.maxsize
-    ref_name: str
-    name: str
-    value: ColumnReferenceNotation
+class ReportColumn(DatabaseModel):
+    index: int = 0
+    value: PropertyReference
 
 
-class Report(PydanticModel, Document):
-    ref_name: str
-    name: str
+class Report(DatabaseModel, Document):
     columns: List[ReportColumn] = []
     condition_groups: List[ConditionGroup] = []
     joins: List[TableJoin] = []
