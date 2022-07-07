@@ -4,21 +4,20 @@ import strawberry
 
 
 @strawberry.enum
-class PropertyType(Enum):
+class PropertyTypes(Enum):
     NUMBER = "Number"
     STRING = "String"
     BOOLEAN = "Boolean"
 
-
 @strawberry.enum
-class ConditionGroupOperation(Enum):
+class ConditionGroupOperations(Enum):
     AND = "AND"
     OR = "OR"
     XOR = "XOR"
 
 
 @strawberry.enum
-class WhereOperation(Enum):
+class WhereOperations(Enum):
     EQ = "EQ"
     IN = "IN"
 
@@ -31,8 +30,7 @@ class WhereOperation(Enum):
 
 
 @strawberry.enum
-class ColumnJoin(Enum):
+class ColumnJoins(Enum):
     LEFT = "LEFT JOIN"
     RIGHT = "RIGHT JOIN"
     INNER = "INNER JOIN"
-

@@ -7,8 +7,8 @@ from pyseto import Key
 from models import Session, User
 
 
-async def store_token(token, exp, since, user):
-    session = Session(token=token, user=user, exp=exp, used_since=since)
+async def store_token(token, since, user):
+    session = Session(token=token, user=user, used_since=since)
     return await session.save()
 
 
@@ -31,11 +31,10 @@ class Auth:
     async def form_token(self, user: User) -> Session:
         now = datetime.utcnow()
         delta = timedelta(days=7)
-        expiration_date = now + delta
         payload = {"data": {"username": user.username, "used_since": str(now)}}
 
-        token = pyseto.encode(self.private_key, payload=payload, serializer=json, exp=timedelta.total_seconds(delta))
-        return await store_token(token, expiration_date, now, user)
+        token = pyseto.encode(self.private_key, payload=payload, serializer=json)
+        return await store_token(token, now, user)
 
     async def verify_token(self, token):
         decoded = pyseto.decode(self.public_key, token, deserializer=json)
@@ -47,8 +46,4 @@ class Auth:
             return None
 
         await saved_session.fetch_link(Session.user)
-        valid_token = saved_session.exp > datetime.utcnow()
-        if not valid_token:
-            await saved_session.delete()
-            return None
         return saved_session.user

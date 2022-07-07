@@ -1,9 +1,8 @@
 from auth import Auth
-from auth import Auth
 from gql.input import *
 from gql.permissions import IsAuthenticated
 from gql.types import *
-from models import Report, Table, User
+from models import Report, User, Entity
 from utils import *
 
 
@@ -18,12 +17,12 @@ class Query:
         return get_entity(User, document_id=document_id)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def tables(self, limit: int = 100) -> List[TableType]:
-        return get_entities(Table, limit)
+    def entities(self, limit: int = 100) -> List[EntityType]:
+        return get_entities(Entity, limit)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def table(self, document_id: PydanticObjectId) -> TableType:
-        return get_entity(Table, document_id=document_id)
+    def entity(self, document_id: PydanticObjectId) -> EntityType:
+        return get_entity(Entity, document_id=document_id)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     def reports(self, limit: int = 100) -> List[ReportType]:
@@ -46,16 +45,16 @@ class Mutation:
         return UserType.from_pydantic(await User.create_user(input))
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def create_table(self, input: TableInput) -> TableType:
-        return await create_entity(Table, input)
+    async def create_entity(self, input: EntityInput) -> EntityType:
+        return await create_entity(Entity, input)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput) -> ReportType:
         return await create_entity(Report, input)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def delete_table(self, id: PydanticObjectId) -> TableType | None:
-        return await delete_entity(Table, id)
+    async def delete_entity(self, id: PydanticObjectId) -> EntityType | None:
+        return await delete_entity(Entity, id)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def delete_report(self, id: PydanticObjectId) -> ReportType | None:
@@ -71,6 +70,6 @@ class Mutation:
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={
-    models.ColumnReferenceNotation: ColumnReferenceNotationScaler,
+    models.PropertyReference: PropertyReferenceScaler,
     PydanticObjectId: ObjectIdScalar
 })

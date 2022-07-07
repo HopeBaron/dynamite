@@ -3,18 +3,17 @@ from fastapi import FastAPI, Depends
 from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.requests import Request
 from strawberry.fastapi import GraphQLRouter
-from strawberry.types import Info
 
 import models
 from auth import Auth
 from gql.schema import schema
-from models import Report, Session, Table, User
+from models import Report, Session, User
 
 
 async def init_database():
     client = AsyncIOMotorClient()
 
-    await init_beanie(database=client.qb_db, document_models=[Table, Report, User, Session])
+    await init_beanie(database=client.qb_db, document_models=[models.Entity, Report, User, Session])
 
 
 async def get_user(request: Request) -> models.User | None:

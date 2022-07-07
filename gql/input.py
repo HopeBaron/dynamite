@@ -1,11 +1,12 @@
 import dataclasses
-from typing import List
+from typing import List, Optional
 
 from strawberry import auto
 from strawberry.experimental import pydantic
 
 import models
-from gql.types import ColumnReferenceNotationScaler
+from enums import PropertyTypes
+from gql.types import PropertyReferenceScaler
 
 
 # === Complete Inputs ===
@@ -13,29 +14,24 @@ from gql.types import ColumnReferenceNotationScaler
 @pydantic.input(models.User)
 class UserInput:
     username: auto
-    name: auto
     password: auto
-    permissions: List[models.Permission]
-
-    def to_pydantic(self):
-        data = dataclasses.asdict(self)
-        permissions_set = data.pop("permissions")
-        permissions = models.Permissions(permission_bits=permissions_set)
-        return models.User(permissions=permissions, **data)
 
 
-@pydantic.input(models.TableColumn, all_fields=True)
-class TableColumnInput:
+@pydantic.input(models.Property)
+class PropertyInput:
+    type: PropertyTypes
+    display_name: auto
+    database_name: auto
+    reference: Optional[PropertyReferenceScaler]
+
+
+@pydantic.input(models.Entity, all_fields=True)
+class EntityInput:
     pass
 
 
-@pydantic.input(models.Table, fields=['ref_name', 'name', 'columns'])
-class TableInput:
-    pass
-
-
-@pydantic.input(models.ColumnReferenceNotation, all_fields=True)
-class ColumnReferenceNotationInput:
+@pydantic.input(models.PropertyReference, all_fields=True)
+class PropertyReferenceInput:
     pass
 
 
@@ -43,7 +39,7 @@ class ColumnReferenceNotationInput:
 class ConditionInput:
     operation: auto
     index: auto
-    target: ColumnReferenceNotationScaler
+    target: PropertyReferenceScaler
     value: auto
 
 
@@ -55,15 +51,15 @@ class ConditionGroupInput:
 @pydantic.input(models.TableJoin)
 class JoinInput:
     type: auto
-    columns: List[ColumnReferenceNotationScaler]
+    columns: List[PropertyReferenceScaler]
 
 
 @pydantic.input(models.ReportColumn)
 class ReportColumnInput:
     index: auto
-    ref_name: auto
-    name: auto
-    value: ColumnReferenceNotationScaler
+    database_name: auto
+    display_name: auto
+    value: PropertyReferenceScaler
 
 
 @pydantic.input(models.Report, all_fields=True)

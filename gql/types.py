@@ -1,12 +1,11 @@
-from typing import List, Dict, Any
+from typing import List, Optional
 
 import strawberry
 from beanie import PydanticObjectId
-from strawberry import auto
+from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
 import models
-from report import ReportBuilder
 
 # === Scalers ===
 
@@ -16,10 +15,10 @@ ObjectIdScalar = strawberry.scalar(
     parse_value=lambda v: PydanticObjectId(v),
     description="MongoDB ObjectId"
 )
-ColumnReferenceNotationScaler = strawberry.scalar(
-    models.ColumnReferenceNotation,
+PropertyReferenceScaler = strawberry.scalar(
+    models.PropertyReference,
     serialize=lambda v: str(v),
-    parse_value=lambda v: models.ColumnReferenceNotation.ref(v),
+    parse_value=lambda v: models.property_reference(v),
     description="String representation of column reference 'table.column'"
 )
 
@@ -29,17 +28,6 @@ ColumnReferenceNotationScaler = strawberry.scalar(
 @pydantic.type(model=models.User)
 class UserType:
     username: auto
-    name: auto
-    permissions: List[models.Permission]
-
-    @staticmethod
-    def from_pydantic(instance: models.User, extra: Dict[str, Any] = None) -> "UserType":
-        data = instance.dict()
-        permissions = data.pop("permissions")
-        data["permissions"] = instance.permissions.permissions
-        data.pop("id")
-        data.pop("password")
-        return UserType(**data)
 
 
 @strawberry.type
@@ -62,24 +50,27 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 @pydantic.type(model=models.TableJoin)
 class JoinType:
     type: auto
-    columns: List[ColumnReferenceNotationScaler]
+    columns: List[PropertyReferenceScaler]
 
 
-@pydantic.type(model=models.TableColumn, all_fields=True)
-class TableColumnType:
+@pydantic.type(model=models.Property)
+class PropertyType:
+    database_name: auto
+    display_name: auto
+    type: auto
+    reference: Optional[PropertyReferenceScaler]
+
+
+@pydantic.type(model=models.Entity, all_fields=True)
+class EntityType:
     pass
 
 
-@pydantic.type(models.Table, all_fields=True)
-class TableType:
-    pass
-
-
-@pydantic.type(models.Condition)
+@pydantic.type(model=models.Condition)
 class ConditionType:
     operation: auto
     index: auto
-    target: ColumnReferenceNotationScaler
+    target: PropertyReferenceScaler
     value: auto
 
 
@@ -91,16 +82,16 @@ class ConditionGroupType:
     # condition_groups: "Optional[List[ConditionGroupType]]"
 
 
-@pydantic.type(models.ReportColumn)
+@pydantic.type(model=models.ReportColumn)
 class ReportColumnType:
     index: auto
-    ref_name: auto
-    name: auto
-    value: ColumnReferenceNotationScaler
+    database_name: auto
+    display_name: auto
+    value: PropertyReferenceScaler
 
 
-@pydantic.type(models.Report, all_fields=True)
+@pydantic.type(model=models.Report, all_fields=True)
 class ReportType:
     @strawberry.field
     def query(self) -> str:
-        return ReportBuilder(self).build()
+        return self.sql()
