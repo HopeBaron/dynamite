@@ -5,6 +5,7 @@ from beanie import Document
 from sql import Table, Expression
 
 from enums import ConditionGroupOperations, ColumnJoins, WhereOperations
+from models import Property
 
 DocumentType = TypeVar("DocumentType", bound="Document")
 
@@ -29,7 +30,7 @@ async def get_entity(cls: Document, **kwargs) -> DocumentType | None:
     return await cls.find_one(kwargs)
 
 
-async def create_entity(cls: Document, gql_input) -> DocumentType:
+async def create_entity(gql_input) -> DocumentType:
     obj = gql_input.to_pydantic()
     return await obj.insert()
 
@@ -38,7 +39,7 @@ async def update_entity(cls: Document, document_id, gql_input) -> DocumentType |
     entity = await get_entity(cls, id=document_id)
     if entity is None:
         return None
-    model_input = get_object(cls, gql_input)
+    model_input = gql_input.to_pydantic()
     return await entity.update(**model_input)
 
 
@@ -60,6 +61,31 @@ def reduce_conditions(acc, last_part, operator=ConditionGroupOperations.AND):
     mapped_function = group_operators_dict[condition_group_or_single]
     combination = mapped_function(old_condition, new_condition)
     return combination, last_part
+
+
+def partition(pred, iterable):
+    trues = []
+    falses = []
+    for item in iterable:
+        if pred(item):
+            trues.append(item)
+        else:
+            falses.append(item)
+    return trues, falses
+
+
+def stringify_property_reference(dot_notation) -> str:
+    return str(property_reference(dot_notation))
+
+
+def property_reference(value: str):
+    stripped_dot_notation = value.strip().split('.')
+    if len(stripped_dot_notation) != 2:
+        message = f"column reference must be in the form of 'table.column' but was {value}"
+        raise Exception(message)
+    normalized_values = [normalize(v) for v in stripped_dot_notation]
+    entity, prop = normalized_values
+    return Property.find(Property.database_name == prop and Property.entity.fetch().database_name == entity)
 
 
 joins_dict = {

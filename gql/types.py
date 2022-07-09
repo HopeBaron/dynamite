@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 import strawberry
-from beanie import PydanticObjectId
+from beanie import PydanticObjectId, Link
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
@@ -16,7 +16,7 @@ ObjectIdScalar = strawberry.scalar(
     description="MongoDB ObjectId"
 )
 PropertyReferenceScaler = strawberry.scalar(
-    models.PropertyReference,
+    Link[models.Property],
     serialize=lambda v: str(v),
     parse_value=lambda v: models.property_reference(v),
     description="String representation of column reference 'table.column'"
@@ -58,7 +58,8 @@ class PropertyType:
     database_name: auto
     display_name: auto
     type: auto
-    reference: Optional[PropertyReferenceScaler]
+    entity: str
+    refers_to: Optional[PropertyReferenceScaler]
 
 
 @pydantic.type(model=models.Entity, all_fields=True)

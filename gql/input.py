@@ -1,6 +1,7 @@
 import dataclasses
 from typing import List, Optional
 
+from beanie import PydanticObjectId
 from strawberry import auto
 from strawberry.experimental import pydantic
 
@@ -30,9 +31,13 @@ class EntityInput:
     pass
 
 
-@pydantic.input(models.PropertyReference, all_fields=True)
-class PropertyReferenceInput:
-    pass
+@pydantic.input(models.Property)
+class PropertyInput:
+    database_name: auto
+    display_name: auto
+    type: auto
+    entity: str
+    refers_to: Optional[PropertyReferenceScaler]
 
 
 @pydantic.input(models.Condition)

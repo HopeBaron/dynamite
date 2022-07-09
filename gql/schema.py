@@ -1,8 +1,9 @@
+import models
 from auth import Auth
 from gql.input import *
 from gql.permissions import IsAuthenticated
 from gql.types import *
-from models import Report, User, Entity
+from models import Report, User, Entity, Property
 from utils import *
 
 
@@ -46,11 +47,15 @@ class Mutation:
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_entity(self, input: EntityInput) -> EntityType:
-        return await create_entity(Entity, input)
+        return await create_entity(input)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def create_property(self, input: PropertyInput) -> PropertyType:
+        return await create_entity(input)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput) -> ReportType:
-        return await create_entity(Report, input)
+        return await create_entity(input)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def delete_entity(self, id: PydanticObjectId) -> EntityType | None:
@@ -70,6 +75,6 @@ class Mutation:
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={
-    models.PropertyReference: PropertyReferenceScaler,
+    Link[models.Property]: PropertyReferenceScaler,
     PydanticObjectId: ObjectIdScalar
 })
