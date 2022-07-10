@@ -74,6 +74,9 @@ class Entity(DatabaseModel, Document):
     def __getattr__(self, item):
         return Property.find(Property.entity == self)
 
+    def properties(self):
+        Property.find(Property.entity == self)
+
 
 Entity.update_forward_refs()
 
@@ -121,13 +124,13 @@ class ConditionGroup(BaseModel):
         return reduce(partial_reduce, wheres)
 
 
-class ReportColumn(DatabaseModel):
+class ReportColumn(DatabaseModel, Document):
     index: int = 0
     value: Link[Property]
 
 
 class Report(DatabaseModel, Document):
-    columns: List[ReportColumn] = []
+    columns: List[Link[ReportColumn]] = []
     condition_groups: List[ConditionGroup] = []
     joins: List[TableJoin] = []
     _sort_condition_groups = validator(
@@ -143,6 +146,7 @@ class Report(DatabaseModel, Document):
         return reduce(lambda first, second: first.join(second), joins)
 
     def __construct_columns(self):
+        self.fetch_link(Report.columns)
         return [column.sql() for column in self.columns]
 
     def sql(self):
