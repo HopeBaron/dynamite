@@ -1,3 +1,4 @@
+import inspect
 import re
 from typing import Any, List, TypeVar, Tuple
 
@@ -5,7 +6,6 @@ from beanie import Document
 from sql import Table, Expression
 
 from enums import ConditionGroupOperations, ColumnJoins, WhereOperations
-from models import Property
 
 DocumentType = TypeVar("DocumentType", bound="Document")
 
@@ -22,21 +22,23 @@ def sort_by_index(cls, value) -> List[Any]:
     return value
 
 
-async def get_entities(cls: Document, limit=100) -> List[DocumentType]:
+async def get_models(cls: Document, limit=100) -> List[DocumentType]:
     return await cls.find_many(limit=limit).to_list()
 
 
-async def get_entity(cls: Document, **kwargs) -> DocumentType | None:
+async def get_model(cls: Document, **kwargs) -> DocumentType | None:
     return await cls.find_one(kwargs)
 
 
-async def create_entity(gql_input) -> DocumentType:
-    obj = gql_input.to_pydantic()
+async def create_model(gql_input) -> DocumentType:
+    convert_function = gql_input.to_pydantic
+    coroutine = inspect.iscoroutinefunction(convert_function)
+    obj = await convert_function() if coroutine else convert_function()
     return await obj.insert()
 
 
-async def update_entity(cls: Document, document_id, gql_input) -> DocumentType | None:
-    entity = await get_entity(cls, id=document_id)
+async def update_model(cls: Document, document_id, gql_input) -> DocumentType | None:
+    entity = await get_model(cls, id=document_id)
     if entity is None:
         return None
     model_input = gql_input.to_pydantic()
@@ -44,7 +46,7 @@ async def update_entity(cls: Document, document_id, gql_input) -> DocumentType |
 
 
 async def delete_entity(cls, document_id) -> DocumentType | None:
-    entity = await get_entity(cls, id=document_id)
+    entity = await get_model(cls, id=document_id)
     if entity is None:
         return None
     await entity.delete()
@@ -76,16 +78,6 @@ def partition(pred, iterable):
 
 def stringify_property_reference(dot_notation) -> str:
     return str(property_reference(dot_notation))
-
-
-def property_reference(value: str):
-    stripped_dot_notation = value.strip().split('.')
-    if len(stripped_dot_notation) != 2:
-        message = f"column reference must be in the form of 'table.column' but was {value}"
-        raise Exception(message)
-    normalized_values = [normalize(v) for v in stripped_dot_notation]
-    entity, prop = normalized_values
-    return Property.find(Property.database_name == prop and Property.entity.fetch().database_name == entity)
 
 
 joins_dict = {

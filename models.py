@@ -3,12 +3,14 @@ from functools import reduce, partial
 from typing import List, Optional
 
 import bcrypt
-from beanie import Document, Link, PydanticObjectId
+import pymongo
+from beanie import Document, Link, PydanticObjectId, Indexed
 from pydantic import BaseModel, validator, Field
+from pymongo import IndexModel
 from typing_extensions import Self
 
 from enums import PropertyTypes, ColumnJoins, WhereOperations, ConditionGroupOperations
-from utils import create_entity, get_entity, normalize, sort_by_index, reduce_conditions, operators_dict, joins_dict
+from utils import create_model, get_model, normalize, sort_by_index, reduce_conditions, operators_dict, joins_dict
 
 
 class EmbeddedDocument(BaseModel):
@@ -36,11 +38,11 @@ class User(Document):
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(encoded_password, salt)
         input.password = hashed
-        return await create_entity(input)
+        return await create_model(input)
 
     @staticmethod
-    async def validate_credintials(username: str, password: str):
-        user: User = await get_entity(User, username=username)
+    async def validate_credentials(username: str, password: str):
+        user: User = await get_model(User, username=username)
         if not user:
             return None
         hashed_password = user.password.encode('utf-8')
@@ -62,21 +64,29 @@ class Property(DatabaseModel, Document):
     type: PropertyTypes = PropertyTypes.STRING
     entity: Link["Entity"]
     refers_to: Optional[Link["Property"]]
+    class Settings:
+        indexes = [
+            IndexModel([("entity", pymongo.ASCENDING), ("database_name", pymongo.ASCENDING)], unique=True, name="entity_name_index")
+        ]
 
     @property
     def references(self):
-        return Property.find(Property.refers_to == self)
+        return Property.find(Property.refers_to.id == self.id)
 
 
 class Entity(DatabaseModel, Document):
     pivot: bool = False
 
-    def __getattr__(self, item):
-        return Property.find(Property.entity == self)
-
+    def prop(self, item):
+        pass
+    @property
     def properties(self):
-        Property.find(Property.entity == self)
+        return Property.find(Property.entity.id == self.id)
 
+    class Settings:
+        indexes = [
+            IndexModel([("database_name", pymongo.ASCENDING)], unique=True, name="database_name_index")
+        ]
 
 Entity.update_forward_refs()
 
@@ -155,3 +165,20 @@ class Report(DatabaseModel, Document):
         groups = self.__construct_condition_groups()
         joins.condition = groups
         return str(joins)
+
+
+def property_reference(value: str):
+    stripped_dot_notation = value.strip().split('.')
+    if len(stripped_dot_notation) != 2:
+        message = f"column reference must be in the form of 'table.column' but was {value}"
+        raise Exception(message)
+    normalized_values = [normalize(v) for v in stripped_dot_notation]
+    entity, prop = normalized_values
+    sameProperty = Property.database_name == prop
+    sameEntity = Property.entity.database_name == entity
+    return Property.find_one(sameEntity and sameProperty)
+
+
+def entity_reference(value: str):
+    entity = Entity.find_one(Entity.database_name == value)
+    return Link[entity]

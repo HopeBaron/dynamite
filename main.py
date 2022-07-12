@@ -7,17 +7,16 @@ from strawberry.fastapi import GraphQLRouter
 import models
 from auth import Auth
 from gql.schema import schema
-from models import Report, Session, User
+from models import Report, Session, User, Entity, Property
 
 
 async def init_database():
     client = AsyncIOMotorClient()
 
-    await init_beanie(database=client.qb_db, document_models=[models.Entity, Report, User, Session])
+    await init_beanie(database=client.qb_db, document_models=[Entity, Property, Report, User, Session])
 
 
 async def get_user(request: Request) -> models.User | None:
-    print("Request", request)
     token = request.headers.get('Authorization', None)
     if token is None:
         return None
@@ -28,6 +27,7 @@ async def custom_context(user=Depends(get_user)):
     return {
         "user": user
     }
+
 
 graphql_app = GraphQLRouter(schema, context_getter=custom_context)
 

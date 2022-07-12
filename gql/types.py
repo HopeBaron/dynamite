@@ -2,24 +2,20 @@ from typing import List, Optional
 
 import strawberry
 from beanie import PydanticObjectId, Link
-from strawberry import auto, LazyType
+from strawberry import auto
 from strawberry.experimental import pydantic
 
 import models
+from gql.dataloaders import property_loader, entity_loader
+from models import Property, Entity
 
 # === Scalers ===
 
-ObjectIdScalar = strawberry.scalar(
+ObjectId = strawberry.scalar(
     PydanticObjectId,
     serialize=lambda v: str(v),
     parse_value=lambda v: PydanticObjectId(v),
     description="MongoDB ObjectId"
-)
-PropertyReferenceScaler = strawberry.scalar(
-    Link[models.Property],
-    serialize=lambda v: str(v),
-    parse_value=lambda v: models.property_reference(v),
-    description="String representation of column reference 'table.column'"
 )
 
 
@@ -46,53 +42,42 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 
 # === Domain models ===
 
-
-@pydantic.type(model=models.TableJoin)
-class JoinType:
-    type: auto
-    columns: List[PropertyReferenceScaler]
-
-
-@pydantic.type(model=models.Property)
-class PropertyType:
-    database_name: auto
-    display_name: auto
-    type: auto
-    entity: str
-    refers_to: Optional[PropertyReferenceScaler]
-
-
-@pydantic.type(model=models.Entity, all_fields=True)
+@pydantic.type(models.Entity)
 class EntityType:
-    pass
-
-
-@pydantic.type(model=models.Condition)
-class ConditionType:
-    operation: auto
-    index: auto
-    target: PropertyReferenceScaler
-    value: auto
-
-
-@pydantic.type(models.ConditionGroup)
-class ConditionGroupType:
-    operation: auto
-    index: auto
-    conditions: auto
-    # condition_groups: "Optional[List[ConditionGroupType]]"
-
-
-@pydantic.type(model=models.ReportColumn)
-class ReportColumnType:
-    index: auto
-    database_name: auto
+    id: ObjectId
+    pivot: auto
     display_name: auto
-    value: PropertyReferenceScaler
+    database_name: auto
 
-
-@pydantic.type(model=models.Report, all_fields=True)
-class ReportType:
     @strawberry.field
-    def query(self) -> str:
-        return self.sql()
+    async def properties(self) -> List["PropertyType"]:
+        entity = await entity_loader.load(self.id)
+        return await entity.properties.to_list()
+
+
+@pydantic.type(models.Property)
+class PropertyType:
+    id: ObjectId
+    type: auto
+    display_name: auto
+    database_name: auto
+
+    @strawberry.field
+    async def entity(self) -> EntityType:
+        property = await property_loader.load(self.id)
+        return await entity_loader.load(property.entity.ref.id)
+
+    @strawberry.field
+    async def refers_to(self) -> Optional["PropertyType"]:
+        property = await property_loader.load(self.id)
+        ref_to = property.refers_to
+        ref_id = ref_to.ref.id if ref_to  else None
+        if not ref_id:
+            return None
+        await property_loader.load(ref_id)
+        return property
+
+    @strawberry.field
+    async def references(self) -> List["PropertyType"]:
+        prop = await property_loader.load(self.id)
+        return await prop.references.to_list()
