@@ -13,7 +13,7 @@ from models import Report, Session, User, Entity, Property
 async def init_database():
     client = AsyncIOMotorClient()
 
-    await init_beanie(database=client.qb_db, document_models=[Entity, Property, Report, User, Session])
+    await init_beanie(database=client.qb_db, document_models=[Entity, Property, Report, models.ReportColumn, User, Session])
 
 
 async def get_user(request: Request) -> models.User | None:

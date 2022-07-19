@@ -25,6 +25,10 @@ class Query:
         return await get_models(Entity, limit)
 
     @strawberry.field
+    async def reports(self, limit: int = 100) -> List[ReportType]:
+        return await get_models(Report, limit)
+
+    @strawberry.field
     async def properties(self, limit: int = 100) -> List[PropertyType]:
         return await get_models(Property, limit)
 
@@ -46,6 +50,13 @@ class Mutation:
 
     @strawberry.mutation
     async def create_entity(self, input: EntityInput) -> EntityType:
+        return await create_model(input)
+    @strawberry.mutation
+    async def create_report(self, input: ReportInput) -> ReportType:
+        return await create_model(input)
+
+    @strawberry.mutation
+    async def create_report_column(self, input: ReportColumnInput) -> ReportColumnType:
         return await create_model(input)
 
     @strawberry.mutation

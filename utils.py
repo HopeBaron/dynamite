@@ -23,11 +23,11 @@ def sort_by_index(cls, value) -> List[Any]:
 
 
 async def get_models(cls: Document, limit=100) -> List[DocumentType]:
-    return await cls.find_many(limit=limit).to_list()
+    return await cls.find_many(limit=limit, fetch_links=True).to_list()
 
 
 async def get_model(cls: Document, **kwargs) -> DocumentType | None:
-    return await cls.find_one(kwargs)
+    return await cls.find_one(kwargs, fetch_links=True)
 
 
 async def create_model(gql_input) -> DocumentType:

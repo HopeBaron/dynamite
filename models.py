@@ -64,9 +64,11 @@ class Property(DatabaseModel, Document):
     type: PropertyTypes = PropertyTypes.STRING
     entity: Link["Entity"]
     refers_to: Optional[Link["Property"]]
+
     class Settings:
         indexes = [
-            IndexModel([("entity", pymongo.ASCENDING), ("database_name", pymongo.ASCENDING)], unique=True, name="entity_name_index")
+            IndexModel([("entity", pymongo.ASCENDING), ("database_name", pymongo.ASCENDING)], unique=True,
+                       name="entity_name_index")
         ]
 
     @property
@@ -79,6 +81,7 @@ class Entity(DatabaseModel, Document):
 
     def prop(self, item):
         pass
+
     @property
     def properties(self):
         return Property.find(Property.entity.id == self.id)
@@ -88,12 +91,13 @@ class Entity(DatabaseModel, Document):
             IndexModel([("database_name", pymongo.ASCENDING)], unique=True, name="database_name_index")
         ]
 
+
 Entity.update_forward_refs()
 
 Property.update_forward_refs()
 
 
-class TableJoin(BaseModel):
+class TableJoin(EmbeddedDocument):
     type: ColumnJoins = ColumnJoins.INNER
     columns: List[Link[Property]]
 
@@ -107,7 +111,7 @@ class TableJoin(BaseModel):
         return current_join
 
 
-class Condition(BaseModel):
+class Condition(EmbeddedDocument):
     operation: WhereOperations
     index: int = 0
     target: Link[Property]
@@ -120,7 +124,7 @@ class Condition(BaseModel):
         return mapped_function(column, self.value)
 
 
-class ConditionGroup(BaseModel):
+class ConditionGroup(EmbeddedDocument):
     operation: ConditionGroupOperations
     index: int = 0
     conditions: List[Condition]
@@ -136,16 +140,18 @@ class ConditionGroup(BaseModel):
 
 class ReportColumn(DatabaseModel, Document):
     index: int = 0
-    value: Link[Property]
+    report: Link["Report"]
+    property: Link[Property]
 
 
 class Report(DatabaseModel, Document):
-    columns: List[Link[ReportColumn]] = []
     condition_groups: List[ConditionGroup] = []
     joins: List[TableJoin] = []
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
-    _sort_columns = validator('columns', allow_reuse=True)(sort_by_index)
+
+    def columns(self, fetch_links: bool = True):
+        return ReportColumn.find(ReportColumn.report.id == self.id, fetch_links=fetch_links)
 
     def __construct_condition_groups(self):
         groups_sql = [condition_group.sql() for condition_group in self.condition_groups]
@@ -157,7 +163,7 @@ class Report(DatabaseModel, Document):
 
     def __construct_columns(self):
         self.fetch_link(Report.columns)
-        return [column.sql() for column in self.columns]
+        return (column.sql() async for column in self.columns())
 
     def sql(self):
         columns = self.__construct_columns()
@@ -165,6 +171,9 @@ class Report(DatabaseModel, Document):
         groups = self.__construct_condition_groups()
         joins.condition = groups
         return str(joins)
+
+
+ReportColumn.update_forward_refs()
 
 
 def property_reference(value: str):
