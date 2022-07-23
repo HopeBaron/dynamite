@@ -200,20 +200,3 @@ class Report(DatabaseModel, Document):
 
 
 ReportColumn.update_forward_refs()
-
-
-def property_reference(value: str):
-    stripped_dot_notation = value.strip().split('.')
-    if len(stripped_dot_notation) != 2:
-        message = f"column reference must be in the form of 'table.column' but was {value}"
-        raise Exception(message)
-    normalized_values = [normalize(v) for v in stripped_dot_notation]
-    entity, prop = normalized_values
-    sameProperty = Property.database_name == prop
-    sameEntity = Property.entity.database_name == entity
-    return Property.find_one(sameEntity and sameProperty)
-
-
-def entity_reference(value: str):
-    entity = Entity.find_one(Entity.database_name == value)
-    return Link[entity]
