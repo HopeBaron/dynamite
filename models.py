@@ -7,6 +7,7 @@ import pymongo
 from beanie import Document, Link, PydanticObjectId, Indexed
 from pydantic import BaseModel, validator, Field
 from pymongo import IndexModel
+from sql import Column, Table
 from typing_extensions import Self
 
 from enums import PropertyTypes, ColumnJoins, WhereOperations, ConditionGroupOperations
@@ -65,6 +66,12 @@ class Property(DatabaseModel, Document):
     entity: Link["Entity"]
     refers_to: Optional[Link["Property"]]
 
+    async def sql(self):
+        await self.fetch_all_links()
+        table = self.entity.sql()
+        column_name = self.database_name
+        return table.__getattr__(column_name)
+
     class Settings:
         indexes = [
             IndexModel([("entity", pymongo.ASCENDING), ("database_name", pymongo.ASCENDING)], unique=True,
@@ -85,6 +92,9 @@ class Entity(DatabaseModel, Document):
     @property
     def properties(self):
         return Property.find(Property.entity.id == self.id)
+
+    def sql(self):
+        return Table(self.database_name)
 
     class Settings:
         indexes = [
@@ -143,6 +153,9 @@ class ReportColumn(DatabaseModel, Document):
     report: Link["Report"]
     property: Link[Property]
 
+    def sql(self):
+        return self.property.sql()
+
 
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
@@ -155,22 +168,35 @@ class Report(DatabaseModel, Document):
 
     def __construct_condition_groups(self):
         groups_sql = [condition_group.sql() for condition_group in self.condition_groups]
+        if not groups_sql:
+            return None
         return reduce(reduce_conditions, groups_sql)
 
     def __construct_joins(self):
         joins = [join.sql() for join in self.joins]
+        if not joins:
+            return None
         return reduce(lambda first, second: first.join(second), joins)
 
-    def __construct_columns(self):
-        self.fetch_link(Report.columns)
-        return (column.sql() async for column in self.columns())
+    async def __construct_columns(self):
+        cols = [await column.sql() async for column in self.columns()]
+        if not cols:
+            return None
+        tables = [col.table for col in cols]
+        joined_tables = reduce(lambda first, second: first.join(second), tables)
+        print("Dingo", cols, joined_tables, type(joined_tables))
+        return joined_tables.select(*cols)
 
-    def sql(self):
-        columns = self.__construct_columns()
+    async def sql(self):
+        columns = await self.__construct_columns()
+        if not columns:
+            return None
         joins = self.__construct_joins()
+        final = columns.join(joins) if joins else columns
         groups = self.__construct_condition_groups()
-        joins.condition = groups
-        return str(joins)
+        if groups:
+            final.condition = groups
+        return str(final)
 
 
 ReportColumn.update_forward_refs()

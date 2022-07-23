@@ -18,11 +18,6 @@ class UserInput:
     password: auto
 
 
-@pydantic.input(Entity, all_fields=True)
-class EntityInput:
-    pass
-
-
 @pydantic.input(Property)
 class PropertyInput:
     database_name: auto
@@ -39,6 +34,10 @@ class PropertyInput:
         reference = None if ref_id is None else await Property.get(ref_id)
         return Property(refers_to=reference, entity=entity, **data)
 
+
+@pydantic.input(Entity, all_fields=True)
+class EntityInput:
+    pass
 
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
@@ -85,9 +84,7 @@ class ReportColumnInput:
             return TableJoin(columns=props, **data)
 
 
-
 @pydantic.input(Report, all_fields=True)
 class ReportInput:
     pass
-
 # === Partial Inputs ===  For edit requests

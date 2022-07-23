@@ -111,6 +111,6 @@ class ReportType:
         return await loader.columns().to_list()
 
     @strawberry.field
-    async def query(self) -> str:
+    async def query(self) -> Optional[str]:
         loader = await report_loader.load(self.id)
         return await loader.sql()

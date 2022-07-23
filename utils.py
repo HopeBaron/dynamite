@@ -1,9 +1,13 @@
-import inspect
+import dataclasses
+import dataclasses
 import re
-from typing import Any, List, TypeVar, Tuple
+from typing import Any, List, TypeVar, Tuple, Iterable
 
 from beanie import Document
+from six import string_types
 from sql import Table, Expression
+from strawberry.experimental.pydantic.conversion import convert_strawberry_class_to_pydantic_model
+from strawberry.utils.await_maybe import await_maybe
 
 from enums import ConditionGroupOperations, ColumnJoins, WhereOperations
 
@@ -31,10 +35,12 @@ async def get_model(cls: Document, **kwargs) -> DocumentType | None:
 
 
 async def create_model(gql_input) -> DocumentType:
-    convert_function = gql_input.to_pydantic
-    coroutine = inspect.iscoroutinefunction(convert_function)
-    obj = await convert_function() if coroutine else convert_function()
+    obj = await await_maybe(gql_input.to_pydantic())
     return await obj.insert()
+
+
+async def create_models(gql_input) -> List[DocumentType]:
+    return [await create_model(form) async for form in gql_input]
 
 
 async def update_model(cls: Document, document_id, gql_input) -> DocumentType | None:
@@ -76,8 +82,16 @@ def partition(pred, iterable):
     return trues, falses
 
 
-def stringify_property_reference(dot_notation) -> str:
-    return str(property_reference(dot_notation))
+async def await_to_pydantic(cls, obj):
+    result = []
+    for f in dataclasses.fields(obj):
+        convert = convert_strawberry_class_to_pydantic_model
+        value = await await_maybe(convert(getattr(obj, f.name)))
+        if isinstance(value, Iterable) and not isinstance(value, string_types):
+            value = [await await_maybe(v) for v in value]
+        result.append((f.name, value))
+        print(result)
+    return cls(**dict(result))
 
 
 joins_dict = {
