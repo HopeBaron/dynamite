@@ -10,6 +10,7 @@ from models import Entity, Property, Report, ReportColumn, ConditionGroup, Table
 
 # === Complete Inputs ===
 from gql.types import ObjectId
+from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
 
 
 @pydantic.input(User)
@@ -55,33 +56,33 @@ class ReportColumnInput:
         prop = await Property.get(property_id)
         return ReportColumn(report=report, property=prop, **data)
 
-    @pydantic.input(Condition)
-    class ConditionInput:
-        operation: auto
-        index: auto
-        target: ObjectId
-        value: auto
+@pydantic.input(Condition)
+class ConditionInput:
+    operation: auto
+    index: auto
+    target: ObjectId
+    value: auto
 
-        async def to_pydantic(self):
-            data = dataclasses.asdict(self)
-            target_id = data.pop("target")
-            prop = Property.get(target_id)
-            return Condition(target=prop, **data)
+    async def to_pydantic(self):
+        data = dataclasses.asdict(self)
+        target_id = data.pop("target")
+        prop = Property.get(target_id)
+        return Condition(target=prop, **data)
 
-    @pydantic.input(ConditionGroup, all_fields=True)
-    class ConditionGroupInput:
-        pass
+@pydantic.input(ConditionGroup, all_fields=True)
+class ConditionGroupInput:
+    pass
 
-    @pydantic.input(TableJoin)
-    class TableJoinInput:
-        type: auto
-        columns: List[ObjectId]
+@pydantic.input(TableJoin)
+class TableJoinInput:
+    type: auto
+    columns: List[ObjectId]
 
-        async def to_pydantic(self):
-            data = dataclasses.asdict(self)
-            column_ids = data.pop("columns")
-            props = property_loader.load(column_ids)
-            return TableJoin(columns=props, **data)
+    async def to_pydantic(self):
+        data = dataclasses.asdict(self)
+        column_ids = data.pop("columns")
+        props = property_loader.load(column_ids)
+        return TableJoin(columns=props, **data)
 
 
 @pydantic.input(Report, all_fields=True)

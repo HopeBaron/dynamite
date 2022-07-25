@@ -184,7 +184,6 @@ class Report(DatabaseModel, Document):
             return None
         tables = [col.table for col in cols]
         joined_tables = reduce(lambda first, second: first.join(second), tables)
-        print("Dingo", cols, joined_tables, type(joined_tables))
         return joined_tables.select(*cols)
 
     async def sql(self):
