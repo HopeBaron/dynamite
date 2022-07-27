@@ -153,8 +153,9 @@ class ReportColumn(DatabaseModel, Document):
     report: Link["Report"]
     property: Link[Property]
 
-    def sql(self):
-        return self.property.sql()
+    async def sql(self):
+        prop = await self.property.fetch()
+        return prop.sql()
 
 
 class Report(DatabaseModel, Document):

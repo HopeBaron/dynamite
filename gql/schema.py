@@ -57,7 +57,7 @@ class Mutation:
     @strawberry.mutation
     async def create_report(self, input: ReportInput) -> ReportType:
         report = await create_model(input)
-        await create_models(input.columns, report=report.id)
+        await create_models(input.columns, report_id=report.id)
         return report
 
     @strawberry.mutation

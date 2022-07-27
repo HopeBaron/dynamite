@@ -3,7 +3,8 @@ import dataclasses
 import re
 from typing import Any, List, TypeVar, Tuple, Iterable
 
-from beanie import Document
+from beanie import Document, Link
+from bson import DBRef
 from six import string_types
 from sql import Table, Expression
 from strawberry.experimental.pydantic.conversion import convert_strawberry_class_to_pydantic_model
@@ -35,7 +36,6 @@ async def get_model(cls: Document, **kwargs) -> DocumentType | None:
 
 
 async def create_model(gql_input, **kwargs) -> DocumentType:
-    print(gql_input)
     obj = await await_maybe(gql_input.to_pydantic(**kwargs))
     return await obj.insert()
 
@@ -91,9 +91,11 @@ async def await_to_pydantic(cls, obj):
         if isinstance(value, Iterable) and not isinstance(value, string_types):
             value = [await await_maybe(v) for v in value]
         result.append((f.name, value))
-        print(result)
     return cls(**dict(result))
 
+
+def link(cls: Document, id):
+    return Link(DBRef(cls.get_motor_collection().name, id), cls)
 
 joins_dict = {
     ColumnJoins.INNER: Table.join,
