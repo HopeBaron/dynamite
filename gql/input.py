@@ -24,7 +24,6 @@ class PropertyInput:
     database_name: auto
     display_name: auto
     type: auto
-    entity: ObjectId
     refers_to: Optional[ObjectId]
 
     async def to_pydantic(self):
@@ -38,7 +37,7 @@ class PropertyInput:
 
 @pydantic.input(Entity, all_fields=True)
 class EntityInput:
-    pass
+    properties: List[PropertyInput]
 
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
@@ -46,7 +45,6 @@ class ReportColumnInput:
     display_name: auto
     index: auto
     property: ObjectId
-    report: ObjectId
 
     async def to_pydantic(self):
         data = dataclasses.asdict(self)
@@ -87,5 +85,4 @@ class TableJoinInput:
 
 @pydantic.input(Report, all_fields=True)
 class ReportInput:
-    pass
-# === Partial Inputs ===  For edit requests
+    columns: List[ReportColumnInput]
