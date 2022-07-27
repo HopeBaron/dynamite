@@ -50,10 +50,15 @@ class Mutation:
 
     @strawberry.mutation
     async def create_entity(self, input: EntityInput) -> EntityType:
-        return await create_model(input)
+        entity = await create_model(input)
+        await create_models(input.properties, entity=entity.id)
+        return entity
+
     @strawberry.mutation
     async def create_report(self, input: ReportInput) -> ReportType:
-        return await create_model(input)
+        report = await create_model(input)
+        await create_models(input.columns, report=report.id)
+        return report
 
     @strawberry.mutation
     async def create_report_column(self, input: ReportColumnInput) -> ReportColumnType:

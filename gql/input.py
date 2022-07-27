@@ -1,13 +1,10 @@
 import dataclasses
 from typing import Optional, List
 
-import strawberry
 from strawberry import auto
 from strawberry.experimental import pydantic
 
 from gql.dataloaders import property_loader
-from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
-
 # === Complete Inputs ===
 from gql.types import ObjectId
 from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
@@ -26,13 +23,13 @@ class PropertyInput:
     type: auto
     refers_to: Optional[ObjectId]
 
-    async def to_pydantic(self):
+    async def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
-        entity_id = data.pop("entity")
+        entity_id = kwargs["entity"]
         ref_id = data.pop('refers_to')
         entity = await Entity.get(entity_id)
         reference = None if ref_id is None else await Property.get(ref_id)
-        return Property(refers_to=reference, entity=entity, **data)
+        return Property(refers_to=reference,entity=entity, **data)
 
 
 @pydantic.input(Entity, all_fields=True)
@@ -46,10 +43,10 @@ class ReportColumnInput:
     index: auto
     property: ObjectId
 
-    async def to_pydantic(self):
+    async def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
-        report_id = data.pop("report")
         property_id = data.pop("property")
+        report_id = kwargs["report"]
         report = await Report.get(report_id)
         prop = await Property.get(property_id)
         return ReportColumn(report=report, property=prop, **data)
