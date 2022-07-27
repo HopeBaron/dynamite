@@ -34,13 +34,14 @@ async def get_model(cls: Document, **kwargs) -> DocumentType | None:
     return await cls.find_one(kwargs, fetch_links=True)
 
 
-async def create_model(gql_input) -> DocumentType:
-    obj = await await_maybe(gql_input.to_pydantic())
+async def create_model(gql_input, **kwargs) -> DocumentType:
+    print(gql_input)
+    obj = await await_maybe(gql_input.to_pydantic(**kwargs))
     return await obj.insert()
 
 
-async def create_models(gql_input) -> List[DocumentType]:
-    return [await create_model(form) async for form in gql_input]
+async def create_models(gql_input, **kwargs) -> List[DocumentType]:
+    return [await create_model(form, **kwargs) for form in gql_input]
 
 
 async def update_model(cls: Document, document_id, gql_input) -> DocumentType | None:
