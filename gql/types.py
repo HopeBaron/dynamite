@@ -84,6 +84,8 @@ class ConditionType:
 
     async def target_object(self):
         return await property_loader.load(self.target)
+
+
 @pydantic.type(models.ConditionGroup, all_fields=True)
 class ConditionGroupType:
     pass
@@ -104,6 +106,11 @@ class ReportColumnType:
     property: PropertyType
 
 
+@pydantic.type(models.Query, all_fields=True)
+class QueryType:
+    pass
+
+
 @pydantic.type(models.Report, all_fields=True)
 class ReportType:
 
@@ -113,6 +120,6 @@ class ReportType:
         return await loader.columns().to_list()
 
     @strawberry.field
-    async def query(self) -> Optional[str]:
+    async def query(self) -> Optional[QueryType]:
         loader = await report_loader.load(self.id)
         return await loader.sql()

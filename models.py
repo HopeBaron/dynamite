@@ -1,7 +1,7 @@
 import itertools
 from datetime import datetime
 from functools import reduce, partial
-from typing import List, Optional, Iterable
+from typing import List, Optional, Iterable, Any
 
 import bcrypt
 import pymongo
@@ -164,7 +164,9 @@ class ReportColumn(DatabaseModel, Document):
 
     def sql(self):
         return self.property.sql()
-
+class Query(BaseModel):
+    select: str
+    values: List[str]
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
     joins: List[TableJoin] = []
@@ -217,6 +219,6 @@ class Report(DatabaseModel, Document):
             groups.append(coupled)
         select.where = reduce(lambda a, b: group_operators_dict[ConditionGroupOperations.AND](a, b), groups)
         s = tuple(select)
-        return s[0]
+        return Query(select=s[0], values=s[1])
 
 ReportColumn.update_forward_refs()
