@@ -1,12 +1,9 @@
 import dataclasses
 from typing import Optional, List
 
-from beanie import Link
-from bson import DBRef
 from strawberry import auto
 from strawberry.experimental import pydantic
 
-from gql.dataloaders import property_loader
 # === Complete Inputs ===
 from gql.types import ObjectId
 from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
@@ -26,20 +23,23 @@ class PropertyInput:
     type: auto
     refers_to: Optional[ObjectId]
 
-    async def to_pydantic(self, **kwargs):
+    def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
         entity_id = kwargs["entity"]
         ref_id = data.pop('refers_to')
-        entity = await Entity.get(entity_id)
-        reference = None if ref_id is None else await Property.get(ref_id)
-        return Property(refers_to=reference, entity=entity, **data)
+        entity = link(Entity, entity_id)
+        reference = link(Property, ref_id)
+        return Property.construct(refers_to=reference, entity=entity, **data)
 
 
 @pydantic.input(Entity, all_fields=True)
 class EntityInput:
     properties: List[PropertyInput]
 
-
+    def to_pydantic(self):
+        data = dataclasses.asdict(self)
+        data.pop("properties")
+        return Entity(**data)
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
     database_name: auto
@@ -64,7 +64,7 @@ class ConditionInput:
     async def to_pydantic(self):
         data = dataclasses.asdict(self)
         target_id = data.pop("target")
-        return Condition(target=prop, **data)
+        return Condition.construct(target=link(Property, target_id), **data)
 
 
 @pydantic.input(ConditionGroup, all_fields=True)
@@ -77,10 +77,10 @@ class TableJoinInput:
     type: auto
     columns: List[ObjectId]
 
-    async def to_pydantic(self):
+    def to_pydantic(self):
         data = dataclasses.asdict(self)
         column_ids = data.pop("columns")
-        return TableJoin(columns=props, **data)
+        return TableJoin(columns=link(Property, column_ids), **data)
 
 
 @pydantic.input(Report, all_fields=True)
@@ -89,5 +89,5 @@ class ReportInput:
 
     def to_pydantic(self):
         data = dataclasses.asdict(self)
-        columns = data.pop("columns")
-        return Report(**data)
+        data.pop("columns")
+        return Report.construct(**data)

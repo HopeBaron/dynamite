@@ -80,9 +80,10 @@ class ConditionType:
     operation: auto
     index: auto
     value: auto
-    target: PropertyType
+    target: ObjectId
 
-
+    async def target_object(self):
+        return await property_loader.load(self.target)
 @pydantic.type(models.ConditionGroup, all_fields=True)
 class ConditionGroupType:
     pass
@@ -105,6 +106,7 @@ class ReportColumnType:
 
 @pydantic.type(models.Report, all_fields=True)
 class ReportType:
+
     @strawberry.field
     async def columns(self) -> List["ReportColumnType"]:
         loader = await report_loader.load(self.id)

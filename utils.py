@@ -66,7 +66,7 @@ def reduce_conditions(acc, last_part, operator=ConditionGroupOperations.AND):
         return condition, last_part
     old_condition, old_last_part = acc
     (new_condition, _) = reduce_conditions(old_last_part, last_part)
-    condition_group_or_single = acc.operation or operator
+    condition_group_or_single = operator
     mapped_function = group_operators_dict[condition_group_or_single]
     combination = mapped_function(old_condition, new_condition)
     return combination, last_part
