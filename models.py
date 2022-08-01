@@ -210,9 +210,7 @@ class Report(DatabaseModel, Document):
             for condition in condition_group.conditions:
                 operator_function = operators_dict[condition.operation]
                 prop = await condition.as_property()
-                entity = await  prop.entity.fetch()
-                table = all_tables[entity.database_name]
-                col = table.__getattr__(prop.database_name)
+                col = await get_col(prop)
                 cond = operator_function(col, condition.value)
                 wheres.append(cond)
             coupled = reduce(lambda a, b: mapped_function(a, b), wheres)
