@@ -68,14 +68,14 @@ class SqlTransformer(BaseModel):
             self.tables[table._name] = table
         return self.tables[table._name]
 
-    async def compute(self):
+    async def select_columns(self):
         report = self.report
         report_columns: List[ReportColumn] = await report.columns().to_list()
         for report_column in report_columns:
             table, column = await self.form_sql_elements(report_column.property)
             self.columns.append(column)
 
-    async def compute_conditions(self, group):
+    async def append_simple_conditions(self, group):
         group_wheres = []
         for condition in group.conditions:
             condition_related_property = await condition.as_property()
@@ -85,16 +85,16 @@ class SqlTransformer(BaseModel):
             group_wheres.append(condition_result)
         return group_wheres
 
-    async def compute_group_conditions(self):
+    async def append_group_conditions(self):
         condition_groups = self.report.condition_groups
         for group in condition_groups:
-            conditions = await self.compute_conditions(group)
+            conditions = await self.append_simple_conditions(group)
             group_operation = group_operators_dict[group.operation]
             self.conditions = reduce(group_operation, conditions)
 
     async def transform(self):
-        await self.compute()
-        await self.compute_group_conditions()
+        await self.select_columns()
+        await self.append_group_conditions()
         from_ = reduce(lambda a, b: a.join(b), self.tables.values())
         select = from_.select(*self.columns)
         root_operation = self.report.root_operation
@@ -104,5 +104,4 @@ class SqlTransformer(BaseModel):
 
     @staticmethod
     async def from_report(report: Report):
-        transformer = SqlTransformer(report=report)
-        return transformer
+        return SqlTransformer(report=report)
