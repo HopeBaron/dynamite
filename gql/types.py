@@ -5,10 +5,12 @@ from beanie import PydanticObjectId
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
+from models import Query
 import models
 from gql.dataloaders import property_loader, entity_loader, report_loader
 
 # === Scalers ===
+from transformer import SqlTransformer
 
 ObjectId = strawberry.scalar(
     PydanticObjectId,
@@ -122,4 +124,6 @@ class ReportType:
     @strawberry.field
     async def query(self) -> Optional[QueryType]:
         loader = await report_loader.load(self.id)
-        return await loader.sql()
+        transformer = await SqlTransformer.from_report(loader)
+        (query, values) = await transformer.transform()
+        return Query(select=query, values=values)

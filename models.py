@@ -1,20 +1,17 @@
-import itertools
+from datetime import datetime
 from datetime import datetime
 from functools import reduce, partial
-from typing import List, Optional, Iterable, Any
+from typing import List, Optional
 
 import bcrypt
 import pymongo
-from beanie import Document, Link, PydanticObjectId, Indexed
+from beanie import Document, Link, PydanticObjectId
 from pydantic import BaseModel, validator, Field
 from pymongo import IndexModel
-from six import string_types
-from sql import Column, Table, Join
 from typing_extensions import Self
 
 from enums import PropertyTypes, ColumnJoins, WhereOperations, ConditionGroupOperations
-from utils import create_model, get_model, normalize, sort_by_index, reduce_conditions, operators_dict, joins_dict, \
-    group_operators_dict
+from utils import create_model, get_model, normalize, sort_by_index
 
 
 class EmbeddedDocument(BaseModel):
@@ -96,8 +93,6 @@ class Entity(DatabaseModel, Document):
     def properties(self):
         return Property.find(Property.entity.id == self.id)
 
-    def sql(self):
-        return Table(self.database_name)
 
     class Settings:
         indexes = [
@@ -114,27 +109,12 @@ class TableJoin(EmbeddedDocument):
     type: ColumnJoins = ColumnJoins.INNER
     columns: List[Link[Property]]
 
-    def sql(self):
-        picked_join = joins_dict[self.type]
-        columns = [column.sql() for column in self.columns]
-        tables = [column.table for column in columns]
-        current_join = reduce(lambda a, b: picked_join(a, b), tables)
-        (condition, _) = reduce(reduce_conditions, columns)
-        current_join.condition = condition
-        return current_join
-
 
 class Condition(EmbeddedDocument):
     operation: WhereOperations
     index: int = 0
     target: PydanticObjectId
     value: List[str]
-
-    async def sql(self):
-        mapped_function = operators_dict[self.operation]
-        target = await self.as_property()
-        column = await target.sql()
-        return mapped_function(column, self.value)
 
     async def as_property(self):
         return await Property.get(self.target)
@@ -150,12 +130,6 @@ class ConditionGroup(EmbeddedDocument):
     async def as_properties(self):
         return [await condition.as_property() for condition in self.conditions]
 
-    async def sql(self):
-        operation = self.operation
-        wheres = [await condition.sql() for condition in self.conditions]
-        partial_reduce = partial(reduce_conditions, operator=operation)
-        return reduce(partial_reduce, wheres)
-
 
 class ReportColumn(DatabaseModel, Document):
     index: int = 0
@@ -164,11 +138,16 @@ class ReportColumn(DatabaseModel, Document):
 
     def sql(self):
         return self.property.sql()
+
+
 class Query(BaseModel):
     select: str
     values: List[str]
+
+
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
+    root_operation: ConditionGroupOperations = ConditionGroupOperations.AND
     joins: List[TableJoin] = []
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
@@ -176,47 +155,5 @@ class Report(DatabaseModel, Document):
     def columns(self, fetch_links: bool = True):
         return ReportColumn.find(ReportColumn.report.id == self.id, fetch_links=fetch_links)
 
-    async def sql(self):
-        all_tables = {}
-
-        async def append(prop):
-            entity = await prop.entity.fetch()
-            table = entity.sql()
-            all_tables[entity.database_name] = table
-
-        columns = await self.columns().to_list()
-        properties = [column.property for column in columns]
-        condition_groups = self.condition_groups
-        condition_props = [await cond.as_properties() for cond in condition_groups]
-        condition_chained = [item for sublist in condition_props for item in sublist]
-        for p in properties:
-            await append(p)
-        for c in condition_chained:
-            await append(c)
-        tables: Join = reduce(lambda a, b: a.join(b), all_tables.values())
-
-        async def get_col(prop: Property):
-            entity = await prop.entity.fetch()
-            table = all_tables[entity.database_name]
-            return table.__getattr__(prop.database_name)
-
-        column_names = [await get_col(prop) for prop in properties]
-        select = tables.select(*column_names)
-        groups = []
-        for condition_group in condition_groups:
-            operation = condition_group.operation
-            wheres = []
-            mapped_function = group_operators_dict[operation]
-            for condition in condition_group.conditions:
-                operator_function = operators_dict[condition.operation]
-                prop = await condition.as_property()
-                col = await get_col(prop)
-                cond = operator_function(col, condition.value)
-                wheres.append(cond)
-            coupled = reduce(lambda a, b: mapped_function(a, b), wheres)
-            groups.append(coupled)
-        select.where = reduce(lambda a, b: group_operators_dict[ConditionGroupOperations.AND](a, b), groups)
-        s = tuple(select)
-        return Query(select=s[0], values=s[1])
 
 ReportColumn.update_forward_refs()

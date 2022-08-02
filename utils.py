@@ -1,16 +1,14 @@
 import dataclasses
-import dataclasses
 import re
 from typing import Any, List, TypeVar, Tuple, Iterable
 
 from beanie import Document, Link
 from bson import DBRef
 from six import string_types
-from sql import Table, Expression
 from strawberry.experimental.pydantic.conversion import convert_strawberry_class_to_pydantic_model
 from strawberry.utils.await_maybe import await_maybe
 
-from enums import ConditionGroupOperations, ColumnJoins, WhereOperations
+from enums import ConditionGroupOperations
 
 DocumentType = TypeVar("DocumentType", bound="Document")
 
@@ -60,18 +58,6 @@ async def delete_entity(cls, document_id) -> DocumentType | None:
     return entity
 
 
-def reduce_conditions(acc, last_part, operator=ConditionGroupOperations.AND):
-    if not isinstance(acc, Tuple):
-        condition = acc == last_part
-        return condition, last_part
-    old_condition, old_last_part = acc
-    (new_condition, _) = reduce_conditions(old_last_part, last_part)
-    condition_group_or_single = operator
-    mapped_function = group_operators_dict[condition_group_or_single]
-    combination = mapped_function(old_condition, new_condition)
-    return combination, last_part
-
-
 def partition(pred, iterable):
     trues = []
     falses = []
@@ -97,23 +83,3 @@ async def await_to_pydantic(cls, obj):
 def link(cls: Document, id):
     return Link(DBRef(cls.get_motor_collection().name, id), cls)
 
-joins_dict = {
-    ColumnJoins.INNER: Table.join,
-    ColumnJoins.LEFT: Table.left_join,
-    ColumnJoins.RIGHT: Table.right_join
-}
-
-group_operators_dict = {
-    ConditionGroupOperations.AND: Expression.__and__,
-    ConditionGroupOperations.OR: Expression.__or__,
-}
-
-operators_dict = {
-    WhereOperations.EQ: Expression.__eq__,
-    WhereOperations.GT: Expression.__gt__,
-    WhereOperations.LT: Expression.__lt__,
-    WhereOperations.LTE: Expression.__le__,
-    WhereOperations.GTE: Expression.__ge__,
-    WhereOperations.IN: Expression.in_,
-    WhereOperations.NEQ: Expression.__ne__
-}
