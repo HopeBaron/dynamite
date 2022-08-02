@@ -105,9 +105,6 @@ Entity.update_forward_refs()
 Property.update_forward_refs()
 
 
-class TableJoin(EmbeddedDocument):
-    type: ColumnJoins = ColumnJoins.INNER
-    columns: List[Link[Property]]
 
 
 class Condition(EmbeddedDocument):
@@ -148,7 +145,6 @@ class Query(BaseModel):
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
     root_operation: ConditionGroupOperations = ConditionGroupOperations.AND
-    joins: List[TableJoin] = []
     _sort_condition_groups = validator(
         'condition_groups', allow_reuse=True)(sort_by_index)
 
