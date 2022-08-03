@@ -6,7 +6,7 @@ from strawberry.experimental import pydantic
 
 # === Complete Inputs ===
 from gql.types import ObjectId
-from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
+from models import Entity, Property, Report, ReportColumn, ConditionGroup, User, Condition
 from utils import link
 
 
@@ -40,6 +40,8 @@ class EntityInput:
         data = dataclasses.asdict(self)
         data.pop("properties")
         return Entity(**data)
+
+
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
     database_name: auto
@@ -70,17 +72,6 @@ class ConditionInput:
 @pydantic.input(ConditionGroup, all_fields=True)
 class ConditionGroupInput:
     pass
-
-
-@pydantic.input(TableJoin)
-class TableJoinInput:
-    type: auto
-    columns: List[ObjectId]
-
-    def to_pydantic(self):
-        data = dataclasses.asdict(self)
-        column_ids = data.pop("columns")
-        return TableJoin(columns=link(Property, column_ids), **data)
 
 
 @pydantic.input(Report, all_fields=True)

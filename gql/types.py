@@ -93,13 +93,6 @@ class ConditionGroupType:
     pass
 
 
-@pydantic.type(models.TableJoin)
-class TableJoinType:
-    id: auto
-    type: auto
-    columns: List[PropertyType]
-
-
 @pydantic.type(models.ReportColumn)
 class ReportColumnType:
     id: auto
