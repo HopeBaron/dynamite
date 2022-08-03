@@ -53,12 +53,6 @@ class User(Document):
         return None
 
 
-class Session(Document):
-    token: str
-    user: Link[User]
-    used_since: datetime
-
-
 class Property(DatabaseModel, Document):
     type: PropertyTypes = PropertyTypes.STRING
     entity: Link["Entity"]
@@ -79,8 +73,6 @@ class Property(DatabaseModel, Document):
     @property
     def references(self):
         return Property.find(Property.refers_to.id == self.id)
-
-
 class Entity(DatabaseModel, Document):
     pivot: bool = False
 
@@ -100,10 +92,8 @@ class Entity(DatabaseModel, Document):
 
 Entity.update_forward_refs()
 
+
 Property.update_forward_refs()
-
-
-
 
 class Condition(EmbeddedDocument):
     operation: WhereOperations
@@ -113,6 +103,8 @@ class Condition(EmbeddedDocument):
 
     async def as_property(self):
         return await Property.get(self.target)
+
+
 
 
 class ConditionGroup(EmbeddedDocument):
@@ -151,3 +143,14 @@ class Report(DatabaseModel, Document):
 
 
 ReportColumn.update_forward_refs()
+
+
+
+
+
+class Session(Document):
+    token: str
+    user: Link[User]
+    used_since: datetime
+    database_access: List[Entity] = []
+    conditions: List[ConditionGroup]

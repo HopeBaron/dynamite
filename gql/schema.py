@@ -1,5 +1,7 @@
 from typing import List
 
+from strawberry.types import Info
+
 import models
 from auth import Auth
 from gql.input import *
@@ -37,6 +39,16 @@ class Query:
 class Mutation:
 
     @strawberry.mutation
+    async def request_token(
+            self,
+            info: Info,
+            database_access: List[ObjectId],
+            conditions: List[ConditionGroupInput]) -> str:
+        session = info.context["session"]
+        limited_access_token = session.copy(database_access=database_access, conditions=conditions)
+        await limited_access_token.save()
+        return limited_access_token.token
+    @strawberry.mutation
     async def create_user(self, input: UserInput) -> UserType:
         return UserType.from_pydantic(await User.create_user(input))
 
@@ -45,7 +57,7 @@ class Mutation:
         user = await User.validate_credentials(username, password)
         if not user:
             return LoginError("Username or password are invalid.")
-        session = await Auth().form_token(user)
+        session = await Auth().create_token(user)
         return LoginSuccess(user, session.token)
 
     @strawberry.mutation

@@ -1,14 +1,15 @@
 import json
 from datetime import datetime, timedelta
+from typing import List
 
 import pyseto
 from pyseto import Key
 
-from models import Session, User
+from models import Session, User, ConditionGroup, Entity
 
 
-async def store_token(token, since, user):
-    session = Session(token=token, user=user, used_since=since)
+async def store_token(token, since, user, database_access: List[Entity] = [], conditions: List[ConditionGroup] = []):
+    session = Session(token=token, user=user, used_since=since, database_access=database_access, conditions=conditions)
     return await session.save()
 
 
@@ -28,9 +29,11 @@ class Auth:
         cls._instance = super(Auth, cls).__new__(cls)
         return cls._instance
 
-    async def form_token(self, user: User) -> Session:
+    async def create_token(self,
+                           user: User,
+                           conditions: List[ConditionGroup],
+                           database_access: List[Entity]) -> Session:
         now = datetime.utcnow()
-        delta = timedelta(days=7)
         payload = {"data": {"username": user.username, "used_since": str(now)}}
 
         token = pyseto.encode(self.private_key, payload=payload, serializer=json)
