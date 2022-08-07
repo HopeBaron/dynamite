@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import strawberry
 from beanie import PydanticObjectId
@@ -49,6 +49,7 @@ class EntityType:
     pivot: auto
     display_name: auto
     database_name: auto
+    owner: UserType
     properties: List["PropertyType"]
 
     @strawberry.field
@@ -106,9 +107,17 @@ class QueryType:
     pass
 
 
-@pydantic.type(models.Report, all_fields=True)
+@pydantic.type(models.Report)
 class ReportType:
+    condition_groups: auto
+    root_operation: auto
+    owner: PydanticObjectId
 
+    def from_pydantic(instance: models.Report, extra: Dict[str, Any] = None):
+        dict = instance.dict()
+        owner = dict.pop("owner")
+        id = owner.ref.id
+        return ReportType(owner=id, **dict)
     @strawberry.field
     async def columns(self) -> List["ReportColumnType"]:
         loader = await report_loader.load(self.id)

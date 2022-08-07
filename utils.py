@@ -80,6 +80,6 @@ async def await_to_pydantic(cls, obj):
     return cls(**dict(result))
 
 
-def link(cls: Document, id):
-    return Link(DBRef(cls.get_motor_collection().name, id), cls)
+def link(cls: Document, *ids):
+    return [Link(DBRef(cls.get_motor_collection().name, id), cls) for id in ids]
 

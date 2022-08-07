@@ -32,8 +32,11 @@ class PropertyInput:
         return Property.construct(refers_to=reference, entity=entity, **data)
 
 
-@pydantic.input(Entity, all_fields=True)
+@pydantic.input(Entity)
 class EntityInput:
+    database_name: auto
+    display_name: auto
+    pivot: auto
     properties: List[PropertyInput]
 
     def to_pydantic(self):
@@ -74,10 +77,11 @@ class ConditionGroupInput:
     pass
 
 
-@pydantic.input(Report, all_fields=True)
+@pydantic.input(Report)
 class ReportInput:
     columns: List[ReportColumnInput]
-
+    condition_groups: auto
+    root_operation: auto
     def to_pydantic(self):
         data = dataclasses.asdict(self)
         data.pop("columns")

@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 
 import pyseto
 from pyseto import Key
@@ -8,9 +8,6 @@ from pyseto import Key
 from models import Session, User, ConditionGroup, Entity
 
 
-async def store_token(token, since, user, database_access: List[Entity] = [], conditions: List[ConditionGroup] = []):
-    session = Session(token=token, user=user, used_since=since, database_access=database_access, conditions=conditions)
-    return await session.save()
 
 
 class Auth:
@@ -29,24 +26,24 @@ class Auth:
         cls._instance = super(Auth, cls).__new__(cls)
         return cls._instance
 
-    async def create_token(self,
-                           user: User,
-                           conditions: List[ConditionGroup],
-                           database_access: List[Entity]) -> Session:
-        now = datetime.utcnow()
-        payload = {"data": {"username": user.username, "used_since": str(now)}}
+    def create_token(self, master_token):
+        return pyseto.encode(self.private_key, payload={"data": {'master_token': str(master_token), 'used_since': datetime.utcnow()}}, serializer=json)
 
-        token = pyseto.encode(self.private_key, payload=payload, serializer=json)
-        return await store_token(token, now, user)
+    def create_session(
+            self,
+            user: User,
+            master_token: Optional[str] = None,
+            database_access: List[Entity]=[],
+            conditions: List[ConditionGroup] = []) -> Session:
+        token = self.create_token(master_token)
+        return Session.construct(
+            token=str(token, 'UTF-8'),
+            master_token=master_token,
+            user=user,
+            used_since = datetime.utcnow(),
+            conditions=conditions,
+            database_access=database_access
+        )
+    def verify_token(self, token):
+        return Session.find_one(Session.token == token)
 
-    async def verify_token(self, token):
-        decoded = pyseto.decode(self.public_key, token, deserializer=json)
-        payload = decoded.payload
-        data = payload['data']
-        username = data["username"]
-        saved_session: Session = await Session.find_one(Session.token == token)
-        if not saved_session:
-            return None
-
-        await saved_session.fetch_link(Session.user)
-        return saved_session.user
