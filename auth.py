@@ -26,8 +26,8 @@ class Auth:
         cls._instance = super(Auth, cls).__new__(cls)
         return cls._instance
 
-    def create_token(self, master_token):
-        return pyseto.encode(self.private_key, payload={"data": {'master_token': str(master_token), 'used_since': datetime.utcnow()}}, serializer=json)
+    def create_token(self, master_token = None):
+        return pyseto.encode(self.private_key, payload={"data": {'master_token': master_token, 'used_since': str(datetime.utcnow())}}, serializer=json)
 
     def create_session(
             self,

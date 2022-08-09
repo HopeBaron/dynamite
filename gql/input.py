@@ -42,7 +42,7 @@ class EntityInput:
     def to_pydantic(self):
         data = dataclasses.asdict(self)
         data.pop("properties")
-        return Entity(**data)
+        return Entity.construct(**data)
 
 
 @pydantic.input(ReportColumn)
@@ -55,8 +55,7 @@ class ReportColumnInput:
     def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
         property_id = data.pop("property")
-        report_id = kwargs["report_id"]
-        return ReportColumn.construct(report=link(Report, report_id), property=link(Property, property_id), **data)
+        return ReportColumn.construct(property=link(Property, property_id)[0], **data)
 
 
 @pydantic.input(Condition)
@@ -80,8 +79,11 @@ class ConditionGroupInput:
 @pydantic.input(Report)
 class ReportInput:
     columns: List[ReportColumnInput]
+    database_name: auto
+    display_name: auto
     condition_groups: auto
     root_operation: auto
+
     def to_pydantic(self):
         data = dataclasses.asdict(self)
         data.pop("columns")

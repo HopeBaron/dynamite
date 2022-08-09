@@ -109,6 +109,7 @@ class QueryType:
 
 @pydantic.type(models.Report)
 class ReportType:
+    id: auto
     condition_groups: auto
     root_operation: auto
     owner: PydanticObjectId

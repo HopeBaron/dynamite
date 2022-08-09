@@ -45,8 +45,8 @@ class Mutation:
             conditions: List[ConditionGroupInput] = []) -> str:
 
         session = info.context["session"]
-        entites = link(Entity, database_access)
-        slave_session = await session.create_slave_session(entites, conditions)
+        entities = link(Entity, database_access)
+        slave_session = await session.create_slave_session(entities, conditions)
         await slave_session.save()
         return slave_session.token
 
@@ -66,22 +66,33 @@ class Mutation:
         return LoginSuccess(user, session.token)
 
     @strawberry.mutation
-    async def create_entity(self, input: EntityInput) -> EntityType:
-        entity = await create_model(input)
+    async def create_entity(self, input: EntityInput, info: Info) -> EntityType:
+        session = info.context["session"]
+        entity = input.to_pydantic()
+        entity.owner = session.user
+        await entity.save()
         await create_models(input.properties, entity=entity.id)
         return entity
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput, info: Info) -> ReportType:
         session = info.context["session"]
+        permitted_columns = session.database_access
+        columns = [column.to_pydantic() for column in input.columns]
         report = input.to_pydantic()
-        permitted = session.database_access
-        for column in await report.columns().to_list():
-            if column.property.id not in permitted:
-                raise ValueError("Using non-permited column")
-            column.save(report=report)
-        report.save()
-        return report
+        report.owner = session
+        for column in columns:
+            await column.fetch_all_links()
+            column.report = link(Report, report.id)
+            property = column.property
+            entity = await property.entity.fetch()
+
+
+            if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
+                raise ValueError(f"{entity.id} is not in your access scope.")
+
+        return await report.save()
+        await ReportColumn.insert_many(columns)
 
     @strawberry.mutation
     async def create_report_column(self, input: ReportColumnInput) -> ReportColumnType:
