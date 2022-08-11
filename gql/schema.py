@@ -16,22 +16,23 @@ from utils import *
 class Query:
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def user(self, document_id: PydanticObjectId) -> UserType:
-        return get_model(User, document_id=document_id)
+    async def user(self, document_id: PydanticObjectId) -> UserType | None:
+        return await User.get(document_id)
+    @strawberry.field
+    async def entities(self, info: Info, limit: int = 100) -> list[EntityType]:
+        session: models.Session = info.context["session"]
+        condition = Entity.owner == session.user and In(Entity.id, session.database_access)
+        return await Entity.find(condition, limit=limit, fetch_links=True).to_list()
 
     @strawberry.field
-    async def entities(self, info: Info, limit: int = 100) -> List[EntityType]:
-        current_session: models.Session = info.context["session"]
-        condition = Entity.owner == current_session.user and In(Entity.id, current_session.database_access)
-        return await Entity.find(condition, fetch_links=True).to_list()
+    async def reports(self, info: Info, limit: int = 100) -> list[ReportType]:
+        session = info.context["session"]
+        return await Report.find(Report.context == session.context,fetch_links=True, limit=limit).to_list()
 
     @strawberry.field
-    async def reports(self, limit: int = 100) -> List[ReportType]:
-        return await get_models(Report, limit)
-
-    @strawberry.field
-    async def properties(self, limit: int = 100) -> List[PropertyType]:
-        return await get_models(Property, limit)
+    async def properties(self, info: Info, limit: int = 100) -> List[PropertyType]:
+        session = info.context["session"]
+        return await Property.find(In(Property.entity, session.database_access), limit=limit, fetch_links=True).to_list()
 
 
 @strawberry.type
@@ -41,15 +42,15 @@ class Mutation:
     async def request_token(
             self,
             info: Info,
+            context: str = None,
             database_access: List[ObjectId] = [],
             conditions: List[ConditionGroupInput] = []) -> str:
 
         session = info.context["session"]
         entities = link(Entity, database_access)
-        slave_session = await session.create_slave_session(entities, conditions)
+        slave_session = await session.create_slave_session(context, entities, conditions)
         await slave_session.save()
         return slave_session.token
-
 
     @strawberry.mutation
     async def create_user(self, input: UserInput) -> UserType:
@@ -71,22 +72,24 @@ class Mutation:
         entity = input.to_pydantic()
         entity.owner = session.user
         await entity.save()
-        await create_models(input.properties, entity=entity.id)
+        properties = [prop.to_pydantic(entity=entity.id) for prop in input.properties]
+        await Property.insert_many(properties)
         return entity
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput, info: Info) -> ReportType:
         session = info.context["session"]
-        permitted_columns = session.database_access
+        database_access = session.database_access
+        permitted_columns = [access.ref.id[0] for access in database_access]
         columns = [column.to_pydantic() for column in input.columns]
         report = input.to_pydantic()
         report.owner = session
+        report.context = session.context
         for column in columns:
             await column.fetch_all_links()
             column.report = link(Report, report.id)
             property = column.property
             entity = await property.entity.fetch()
-
 
             if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
                 raise ValueError(f"{entity.id} is not in your access scope.")

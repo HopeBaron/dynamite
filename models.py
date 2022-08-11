@@ -129,6 +129,7 @@ class ReportColumn(DatabaseModel, Document):
 
 class Session(Document):
     token: str
+    context: Optional[str]
     master_token: Optional[str]
     user: Link[User]
     used_since: datetime
@@ -136,10 +137,12 @@ class Session(Document):
     conditions: List[ConditionGroup] = []
 
     async def create_slave_session(self,
+                                   context: str,
                                    database_access: List[Link[Entity]],
                                    conditions: List[ConditionGroup]):
         from auth import Auth
         return Auth().create_session(
+            context,
             self.user,
             self.token,
             database_access,
@@ -156,6 +159,7 @@ class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
     root_operation: ConditionGroupOperations = ConditionGroupOperations.AND
     owner: Link[Session]
+    context: str
     _sort_condition_groups = validator('condition_groups', allow_reuse=True)(sort_by_index)
 
     def columns(self, fetch_links: bool = True):

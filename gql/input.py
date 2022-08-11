@@ -27,8 +27,8 @@ class PropertyInput:
         data = dataclasses.asdict(self)
         entity_id = kwargs["entity"]
         ref_id = data.pop('refers_to')
-        entity = link(Entity, entity_id)
-        reference = link(Property, ref_id)
+        entity = link(Entity, entity_id)[0]
+        reference = link(Property, ref_id)[0]
         return Property.construct(refers_to=reference, entity=entity, **data)
 
 

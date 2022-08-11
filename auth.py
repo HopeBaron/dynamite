@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pyseto
+from beanie import Link
 from pyseto import Key
 
 from models import Session, User, ConditionGroup, Entity
@@ -31,12 +32,14 @@ class Auth:
 
     def create_session(
             self,
+            context: str,
             user: User,
             master_token: Optional[str] = None,
-            database_access: List[Entity]=[],
+            database_access: List[Link[Entity]]=[],
             conditions: List[ConditionGroup] = []) -> Session:
         token = self.create_token(master_token)
         return Session.construct(
+            context=context,
             token=str(token, 'UTF-8'),
             master_token=master_token,
             user=user,
