@@ -15,4 +15,5 @@ class IsOrganizationUser(BasePermission):
     message = "You must have an organization account."
 
     async def has_permission(self, source: Any, info: Info, **kwargs) -> bool:
-        return info.context["user"].owner is None
+        session = info.context["session"]
+        return session.master_token is None
