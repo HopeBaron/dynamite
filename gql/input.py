@@ -6,7 +6,7 @@ from strawberry.experimental import pydantic
 
 # === Complete Inputs ===
 from gql.types import ObjectId
-from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
+from models import Entity, Property, Report, ReportColumn, ConditionGroup, User, Condition
 from utils import link
 
 
@@ -27,19 +27,24 @@ class PropertyInput:
         data = dataclasses.asdict(self)
         entity_id = kwargs["entity"]
         ref_id = data.pop('refers_to')
-        entity = link(Entity, entity_id)
-        reference = link(Property, ref_id)
+        entity = link(Entity, entity_id)[0]
+        reference = link(Property, ref_id)[0]
         return Property.construct(refers_to=reference, entity=entity, **data)
 
 
-@pydantic.input(Entity, all_fields=True)
+@pydantic.input(Entity)
 class EntityInput:
+    database_name: auto
+    display_name: auto
+    pivot: auto
     properties: List[PropertyInput]
 
     def to_pydantic(self):
         data = dataclasses.asdict(self)
         data.pop("properties")
-        return Entity(**data)
+        return Entity.construct(**data)
+
+
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
     database_name: auto
@@ -50,8 +55,7 @@ class ReportColumnInput:
     def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
         property_id = data.pop("property")
-        report_id = kwargs["report_id"]
-        return ReportColumn.construct(report=link(Report, report_id), property=link(Property, property_id), **data)
+        return ReportColumn.construct(property=link(Property, property_id)[0], **data)
 
 
 @pydantic.input(Condition)
@@ -72,20 +76,13 @@ class ConditionGroupInput:
     pass
 
 
-@pydantic.input(TableJoin)
-class TableJoinInput:
-    type: auto
-    columns: List[ObjectId]
-
-    def to_pydantic(self):
-        data = dataclasses.asdict(self)
-        column_ids = data.pop("columns")
-        return TableJoin(columns=link(Property, column_ids), **data)
-
-
-@pydantic.input(Report, all_fields=True)
+@pydantic.input(Report)
 class ReportInput:
     columns: List[ReportColumnInput]
+    database_name: auto
+    display_name: auto
+    condition_groups: auto
+    root_operation: auto
 
     def to_pydantic(self):
         data = dataclasses.asdict(self)

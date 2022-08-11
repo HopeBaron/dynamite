@@ -1,16 +1,14 @@
 from datetime import datetime
-from datetime import datetime
-from functools import reduce, partial
 from typing import List, Optional
 
 import bcrypt
 import pymongo
-from beanie import Document, Link, PydanticObjectId
+from beanie import Document, Link, PydanticObjectId, UnionDoc
 from pydantic import BaseModel, validator, Field
 from pymongo import IndexModel
 from typing_extensions import Self
 
-from enums import PropertyTypes, ColumnJoins, WhereOperations, ConditionGroupOperations
+from enums import PropertyTypes, WhereOperations, ConditionGroupOperations
 from utils import create_model, get_model, normalize, sort_by_index
 
 
@@ -30,16 +28,16 @@ class User(Document):
     password: str
 
     @classmethod
-    async def create_user(cls, input) -> Self:
-        username = input.username
-        matching_users = await User.find(username=username).count()
+    async def create_user(cls, username, password) -> Self:
+        matching_users = await User.find(User.username == username).count()
         if matching_users != 0:
             raise ValueError("This username is already taken.")
-        encoded_password = input.password.encode('utf-8')
+        encoded_password = password.encode('utf-8')
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(encoded_password, salt)
-        input.password = hashed
-        return await create_model(input)
+        user = User(username=username, password=hashed)
+        await user.save()
+        return user
 
     @staticmethod
     async def validate_credentials(username: str, password: str):
@@ -53,12 +51,6 @@ class User(Document):
             return user
 
         return None
-
-
-class Session(Document):
-    token: str
-    user: Link[User]
-    used_since: datetime
 
 
 class Property(DatabaseModel, Document):
@@ -85,6 +77,7 @@ class Property(DatabaseModel, Document):
 
 class Entity(DatabaseModel, Document):
     pivot: bool = False
+    owner: Link[User]
 
     def prop(self, item):
         pass
@@ -92,7 +85,6 @@ class Entity(DatabaseModel, Document):
     @property
     def properties(self):
         return Property.find(Property.entity.id == self.id)
-
 
     class Settings:
         indexes = [
@@ -103,8 +95,6 @@ class Entity(DatabaseModel, Document):
 Entity.update_forward_refs()
 
 Property.update_forward_refs()
-
-
 
 
 class Condition(EmbeddedDocument):
@@ -137,6 +127,29 @@ class ReportColumn(DatabaseModel, Document):
         return self.property.sql()
 
 
+class Session(Document):
+    token: str
+    context: Optional[str]
+    master_token: Optional[str]
+    user: Link[User]
+    used_since: datetime
+    database_access: List[Link[Entity]] = []
+    conditions: List[ConditionGroup] = []
+
+    async def create_slave_session(self,
+                                   context: str,
+                                   database_access: List[Link[Entity]],
+                                   conditions: List[ConditionGroup]):
+        from auth import Auth
+        return Auth().create_session(
+            context,
+            self.user,
+            self.token,
+            database_access,
+            conditions
+        )
+
+
 class Query(BaseModel):
     select: str
     values: List[str]
@@ -145,8 +158,9 @@ class Query(BaseModel):
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
     root_operation: ConditionGroupOperations = ConditionGroupOperations.AND
-    _sort_condition_groups = validator(
-        'condition_groups', allow_reuse=True)(sort_by_index)
+    owner: Link[Session]
+    context: str
+    _sort_condition_groups = validator('condition_groups', allow_reuse=True)(sort_by_index)
 
     def columns(self, fetch_links: bool = True):
         return ReportColumn.find(ReportColumn.report.id == self.id, fetch_links=fetch_links)

@@ -1,9 +1,12 @@
 from typing import List
 
+from sql.operators import In
+from strawberry.types import Info
+
 import models
 from auth import Auth
 from gql.input import *
-from gql.permissions import IsAuthenticated
+from gql.permissions import IsAuthenticated, IsOrganizationUser
 from gql.types import *
 from models import Report, User, Entity, Property
 from utils import *
@@ -13,58 +16,89 @@ from utils import *
 class Query:
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def user(self, document_id: PydanticObjectId) -> UserType:
-        return get_model(User, document_id=document_id)
-
-    @strawberry.field
-    async def verify_token(self, token: str) -> bool:
-        return await Auth().verify_token(token)
-
-    @strawberry.field
-    async def entities(self, limit: int = 100) -> List[EntityType]:
-        return await get_models(Entity, limit)
-
-    @strawberry.field
-    async def reports(self, limit: int = 100) -> List[ReportType]:
-        return await get_models(Report, limit)
-
-    @strawberry.field
-    async def properties(self, limit: int = 100) -> List[PropertyType]:
-        return await get_models(Property, limit)
-
+    async def user(self, document_id: PydanticObjectId) -> UserType | None:
+        return await User.get(document_id)
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    async def entities(self, info: Info, limit: int = 100) -> list[EntityType]:
+        session: models.Session = info.context["session"]
+        condition = Entity.owner == session.user and In(Entity.id, session.database_access)
+        if session.context:
+            return await Entity.find(condition, limit=limit, fetch_links=True).to_list()
+        return await Entity.find(limit=limit, fetch_links=True).to_list()
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    async def reports(self, info: Info, limit: int = 100) -> list[ReportType]:
+        session = info.context["session"]
+        if session.context:
+            return await Report.find(Report.context == session.context,fetch_links=True, limit=limit).to_list()
+        return await Report.find(limit=limit, fetch_links=True).to_list()
 
 @strawberry.type
 class Mutation:
 
+    @strawberry.mutation(IsOrganizationUser)
+    async def request_token(
+            self,
+            info: Info,
+            context: str = None,
+            database_access: List[ObjectId] = [],
+            conditions: List[ConditionGroupInput] = []) -> str:
+
+        session = info.context["session"]
+        entities = link(Entity, database_access)
+        slave_session = await session.create_slave_session(context, entities, conditions)
+        await slave_session.save()
+        return slave_session.token
+
     @strawberry.mutation
     async def create_user(self, input: UserInput) -> UserType:
-        return UserType.from_pydantic(await User.create_user(input))
+        user = await User.create_user(input.username, input.password)
+        return UserType.from_pydantic(user)
 
     @strawberry.mutation
     async def authenticate_user(self, username: str, password: str) -> LoginResult:
         user = await User.validate_credentials(username, password)
         if not user:
             return LoginError("Username or password are invalid.")
-        session = await Auth().form_token(user)
+        session = Auth().create_session(user)
+        await session.save()
         return LoginSuccess(user, session.token)
 
-    @strawberry.mutation
-    async def create_entity(self, input: EntityInput) -> EntityType:
-        entity = await create_model(input)
-        await create_models(input.properties, entity=entity.id)
+    @strawberry.mutation(permission_classes=[IsOrganizationUser])
+    async def create_entity(self, input: EntityInput, info: Info) -> EntityType:
+        session = info.context["session"]
+        entity = input.to_pydantic()
+        entity.owner = session.user
+        await entity.save()
+        properties = [prop.to_pydantic(entity=entity.id) for prop in input.properties]
+        await Property.insert_many(properties)
         return entity
 
-    @strawberry.mutation
-    async def create_report(self, input: ReportInput) -> ReportType:
-        report = await create_model(input)
-        await create_models(input.columns, report_id=report.id)
-        return report
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def create_report(self, input: ReportInput, info: Info) -> ReportType:
+        session = info.context["session"]
+        database_access = session.database_access
+        permitted_columns = [access.ref.id[0] for access in database_access]
+        columns = [column.to_pydantic() for column in input.columns]
+        report = input.to_pydantic()
+        report.owner = session
+        report.context = session.context
+        for column in columns:
+            await column.fetch_all_links()
+            column.report = link(Report, report.id)
+            property = column.property
+            entity = await property.entity.fetch()
 
-    @strawberry.mutation
+            if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
+                raise ValueError(f"{entity.id} is not in your access scope.")
+
+        return await report.save()
+        await ReportColumn.insert_many(columns)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report_column(self, input: ReportColumnInput) -> ReportColumnType:
         return await create_model(input)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsOrganizationUser])
     async def create_property(self, input: PropertyInput) -> PropertyType:
         return await create_model(input)
 

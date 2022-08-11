@@ -15,16 +15,16 @@ async def init_database():
     await init_beanie(database=client.qb_db, document_models=[Entity, Property, Report, ReportColumn, User, Session])
 
 
-async def get_user(request: Request) -> User | None:
+async def get_session(request: Request) -> Session | None:
     token = request.headers.get('Authorization', None)
     if token is None:
         return None
     return await Auth().verify_token(token)
 
 
-async def custom_context(user=Depends(get_user)):
+async def custom_context(session=Depends(get_session)):
     return {
-        "user": user
+        "session": session
     }
 
 
