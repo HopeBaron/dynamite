@@ -4,10 +4,10 @@ from typing import Optional, List
 from strawberry import auto
 from strawberry.experimental import pydantic
 
-from gql.dataloaders import property_loader
 # === Complete Inputs ===
 from gql.types import ObjectId
-from models import Entity, Property, Report, ReportColumn, ConditionGroup, TableJoin, User, Condition
+from models import Entity, Property, Report, ReportColumn, ConditionGroup, User, Condition
+from utils import link
 
 
 @pydantic.input(User)
@@ -23,18 +23,27 @@ class PropertyInput:
     type: auto
     refers_to: Optional[ObjectId]
 
-    async def to_pydantic(self, **kwargs):
+    def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
         entity_id = kwargs["entity"]
         ref_id = data.pop('refers_to')
-        entity = await Entity.get(entity_id)
-        reference = None if ref_id is None else await Property.get(ref_id)
-        return Property(refers_to=reference,entity=entity, **data)
+        entity = link(Entity, entity_id)[0]
+        reference = link(Property, ref_id)[0]
+        return Property.construct(refers_to=reference, entity=entity, **data)
 
 
-@pydantic.input(Entity, all_fields=True)
+@pydantic.input(Entity)
 class EntityInput:
+    database_name: auto
+    display_name: auto
+    pivot: auto
     properties: List[PropertyInput]
+
+    def to_pydantic(self):
+        data = dataclasses.asdict(self)
+        data.pop("properties")
+        return Entity.construct(**data)
+
 
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
@@ -43,13 +52,11 @@ class ReportColumnInput:
     index: auto
     property: ObjectId
 
-    async def to_pydantic(self, **kwargs):
+    def to_pydantic(self, **kwargs):
         data = dataclasses.asdict(self)
         property_id = data.pop("property")
-        report_id = kwargs["report"]
-        report = await Report.get(report_id)
-        prop = await Property.get(property_id)
-        return ReportColumn(report=report, property=prop, **data)
+        return ReportColumn.construct(property=link(Property, property_id)[0], **data)
+
 
 @pydantic.input(Condition)
 class ConditionInput:
@@ -61,25 +68,23 @@ class ConditionInput:
     async def to_pydantic(self):
         data = dataclasses.asdict(self)
         target_id = data.pop("target")
-        prop = Property.get(target_id)
-        return Condition(target=prop, **data)
+        return Condition.construct(target=link(Property, target_id), **data)
+
 
 @pydantic.input(ConditionGroup, all_fields=True)
 class ConditionGroupInput:
     pass
 
-@pydantic.input(TableJoin)
-class TableJoinInput:
-    type: auto
-    columns: List[ObjectId]
 
-    async def to_pydantic(self):
-        data = dataclasses.asdict(self)
-        column_ids = data.pop("columns")
-        props = property_loader.load(column_ids)
-        return TableJoin(columns=props, **data)
-
-
-@pydantic.input(Report, all_fields=True)
+@pydantic.input(Report)
 class ReportInput:
     columns: List[ReportColumnInput]
+    database_name: auto
+    display_name: auto
+    condition_groups: auto
+    root_operation: auto
+
+    def to_pydantic(self):
+        data = dataclasses.asdict(self)
+        data.pop("columns")
+        return Report.construct(**data)

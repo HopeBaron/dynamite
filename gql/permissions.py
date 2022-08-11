@@ -8,4 +8,12 @@ class IsAuthenticated(BasePermission):
     message = "User is not authenticated."
 
     async def has_permission(self, source: Any, info: Info, **kwargs) -> bool:
-        return info.context["user"] is not None
+        return info.context["session"] is not None
+
+
+class IsOrganizationUser(BasePermission):
+    message = "You must have an organization account."
+
+    async def has_permission(self, source: Any, info: Info, **kwargs) -> bool:
+        session = info.context["session"]
+        return session.master_token is None

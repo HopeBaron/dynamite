@@ -1,14 +1,16 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import strawberry
 from beanie import PydanticObjectId
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
+from models import Query
 import models
 from gql.dataloaders import property_loader, entity_loader, report_loader
 
 # === Scalers ===
+from transformer import SqlTransformer
 
 ObjectId = strawberry.scalar(
     PydanticObjectId,
@@ -47,6 +49,7 @@ class EntityType:
     pivot: auto
     display_name: auto
     database_name: auto
+    owner: UserType
     properties: List["PropertyType"]
 
     @strawberry.field
@@ -80,19 +83,15 @@ class ConditionType:
     operation: auto
     index: auto
     value: auto
-    target: PropertyType
+    target: ObjectId
+
+    async def target_object(self):
+        return await property_loader.load(self.target)
 
 
 @pydantic.type(models.ConditionGroup, all_fields=True)
 class ConditionGroupType:
     pass
-
-
-@pydantic.type(models.TableJoin)
-class TableJoinType:
-    id: auto
-    type: auto
-    columns: List[PropertyType]
 
 
 @pydantic.type(models.ReportColumn)
@@ -103,14 +102,31 @@ class ReportColumnType:
     property: PropertyType
 
 
-@pydantic.type(models.Report, all_fields=True)
+@pydantic.type(models.Query, all_fields=True)
+class QueryType:
+    pass
+
+
+@pydantic.type(models.Report)
 class ReportType:
+    id: auto
+    condition_groups: auto
+    root_operation: auto
+    owner: PydanticObjectId
+
+    def from_pydantic(instance: models.Report, extra: Dict[str, Any] = None):
+        dict = instance.dict()
+        owner = dict.pop("owner")
+        id = owner.ref.id
+        return ReportType(owner=id, **dict)
     @strawberry.field
     async def columns(self) -> List["ReportColumnType"]:
         loader = await report_loader.load(self.id)
         return await loader.columns().to_list()
 
     @strawberry.field
-    async def query(self) -> Optional[str]:
+    async def query(self) -> Optional[QueryType]:
         loader = await report_loader.load(self.id)
-        return await loader.sql()
+        transformer = await SqlTransformer.from_report(loader)
+        (query, values) = await transformer.transform()
+        return Query(select=query, values=values)

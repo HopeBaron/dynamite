@@ -4,28 +4,27 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.requests import Request
 from strawberry.fastapi import GraphQLRouter
 
-import models
 from auth import Auth
 from gql.schema import schema
-from models import Report, Session, User, Entity, Property
+from models import *
 
 
 async def init_database():
     client = AsyncIOMotorClient()
 
-    await init_beanie(database=client.qb_db, document_models=[Entity, Property, Report, models.ReportColumn, User, Session])
+    await init_beanie(database=client.qb_db, document_models=[Entity, Property, Report, ReportColumn, User, Session])
 
 
-async def get_user(request: Request) -> models.User | None:
+async def get_session(request: Request) -> Session | None:
     token = request.headers.get('Authorization', None)
     if token is None:
         return None
     return await Auth().verify_token(token)
 
 
-async def custom_context(user=Depends(get_user)):
+async def custom_context(session=Depends(get_session)):
     return {
-        "user": user
+        "session": session
     }
 
 
