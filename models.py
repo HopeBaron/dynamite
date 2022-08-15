@@ -4,6 +4,8 @@ from typing import List, Optional
 import bcrypt
 import pymongo
 from beanie import Document, Link, PydanticObjectId, UnionDoc
+from beanie.odm.operators.find.array import ElemMatch
+from beanie.odm.operators.find.comparison import In
 from pydantic import BaseModel, validator, Field
 from pymongo import IndexModel
 from typing_extensions import Self
@@ -13,7 +15,7 @@ from utils import create_model, get_model, normalize, sort_by_index
 
 
 class EmbeddedDocument(BaseModel):
-    id: Optional[PydanticObjectId] = Field(default_factory=PydanticObjectId, alias="_id")
+    id: Optional[PydanticObjectId] = Field(default_factory=PydanticObjectId, alias="id")
 
 
 class DatabaseModel(BaseModel):
@@ -53,10 +55,13 @@ class User(Document):
         return None
 
 
-class Property(DatabaseModel, Document):
+class Property(DatabaseModel, EmbeddedDocument):
     type: PropertyTypes = PropertyTypes.STRING
-    entity: Link["Entity"]
-    refers_to: Optional[Link["Property"]]
+    refers_to: Optional[PydanticObjectId]
+
+    @property
+    def entity(self):
+        return Entity.find_one(In(Entity.properties.id, [self.id]))
 
     async def sql(self):
         entity = await self.entity.fetch()
@@ -77,14 +82,11 @@ class Property(DatabaseModel, Document):
 
 class Entity(DatabaseModel, Document):
     pivot: bool = False
-    owner: Link[User]
+    owner: Optional[Link[User]]
+    properties: List[Property]
 
     def prop(self, item):
-        pass
-
-    @property
-    def properties(self):
-        return Property.find(Property.entity.id == self.id)
+        return [value for value in self.properties if value.id == item][0]
 
     class Settings:
         indexes = [
@@ -104,8 +106,8 @@ class Condition(EmbeddedDocument):
     value: List[str]
 
     async def as_property(self):
-        return await Property.get(self.target)
-
+        entity = await Entity.find_one(In(Entity.properties.id, [self.target]))
+        return entity.prop(self.target)
 
 class ConditionGroup(EmbeddedDocument):
     operation: ConditionGroupOperations
@@ -118,13 +120,21 @@ class ConditionGroup(EmbeddedDocument):
         return [await condition.as_property() for condition in self.conditions]
 
 
-class ReportColumn(DatabaseModel, Document):
+class ReportColumn(DatabaseModel, EmbeddedDocument):
     index: int = 0
-    report: Link["Report"]
-    property: Link[Property]
+    prop: PydanticObjectId
 
     def sql(self):
-        return self.property.sql()
+        return self.prop.sql()
+
+    @property
+    def fetched_entity(self):
+        return Entity.find_one(In(Entity.properties.id, [self.prop]))
+
+    @property
+    async def fetched_property(self):
+        entity = await self.fetched_entity
+        return entity.prop(self.prop)
 
 
 class Session(Document):
@@ -157,13 +167,11 @@ class Query(BaseModel):
 
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
+    columns: List[ReportColumn] = []
     root_operation: ConditionGroupOperations = ConditionGroupOperations.AND
-    owner: Link[Session]
-    context: str
+    owner: Optional[Link[Session]]
+    context: Optional[str]
     _sort_condition_groups = validator('condition_groups', allow_reuse=True)(sort_by_index)
-
-    def columns(self, fetch_links: bool = True):
-        return ReportColumn.find(ReportColumn.report.id == self.id, fetch_links=fetch_links)
 
 
 ReportColumn.update_forward_refs()

@@ -7,7 +7,7 @@ from strawberry.experimental import pydantic
 
 from models import Query
 import models
-from gql.dataloaders import property_loader, entity_loader, report_loader
+from gql.dataloaders import entity_loader, report_loader, property_loader
 
 # === Scalers ===
 from transformer import SqlTransformer
@@ -43,28 +43,12 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 
 # === Domain models ===
 
-@pydantic.type(models.Entity)
-class EntityType:
-    id: ObjectId
-    pivot: auto
-    display_name: auto
-    database_name: auto
-    owner: UserType
-    properties: List["PropertyType"]
-
-    @strawberry.field
-    async def properties(self) -> List["PropertyType"]:
-        entity = await entity_loader.load(self.id)
-        return await entity.properties.to_list()
-
-
 @pydantic.type(models.Property)
 class PropertyType:
     id: ObjectId
     type: auto
     display_name: auto
     database_name: auto
-    entity: EntityType
 
     @strawberry.field
     async def references(self) -> List["PropertyType"]:
@@ -75,6 +59,16 @@ class PropertyType:
     async def refers_to(self) -> Optional["PropertyType"]:
         prop = await property_loader.load(self.id)
         return prop.refers_to
+
+
+@pydantic.type(models.Entity)
+class EntityType:
+    id: ObjectId
+    properties: List["PropertyType"]
+    pivot: auto
+    display_name: auto
+    database_name: auto
+    owner: UserType
 
 
 @pydantic.type(models.Condition)
@@ -99,7 +93,7 @@ class ReportColumnType:
     id: auto
     index: auto
     report: LazyType["ReportType", __name__]
-    property: PropertyType
+    prop: PropertyType
 
 
 @pydantic.type(models.Query, all_fields=True)
@@ -122,7 +116,7 @@ class ReportType:
     @strawberry.field
     async def columns(self) -> List["ReportColumnType"]:
         loader = await report_loader.load(self.id)
-        return await loader.columns().to_list()
+        return loader.columns
 
     @strawberry.field
     async def query(self) -> Optional[QueryType]:

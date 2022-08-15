@@ -56,7 +56,7 @@ class SqlTransformer(BaseModel):
         arbitrary_types_allowed = True
 
     async def form_sql_elements(self, property: Property):
-        entity = await property.entity.fetch()
+        entity = await property.entity
         new_table = Table(entity.database_name)
         table = self.add_table(new_table)
         column = table.__getattr__(property.database_name)
@@ -69,9 +69,9 @@ class SqlTransformer(BaseModel):
 
     async def select_columns(self):
         report = self.report
-        report_columns: List[ReportColumn] = await report.columns().to_list()
+        report_columns: List[ReportColumn] = report.columns
         for report_column in report_columns:
-            table, column = await self.form_sql_elements(report_column.property)
+            table, column = await self.form_sql_elements(await report_column.fetched_property)
             self.columns.append(column)
 
     async def append_simple_conditions(self, group):

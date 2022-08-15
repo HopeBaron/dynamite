@@ -1,14 +1,11 @@
-from typing import List
-
-from sql.operators import In
+from beanie.odm.operators.find.comparison import In
 from strawberry.types import Info
 
-import models
 from auth import Auth
 from gql.input import *
 from gql.permissions import IsAuthenticated, IsOrganizationUser
 from gql.types import *
-from models import Report, User, Entity, Property
+from models import Report, User, Entity
 from utils import *
 
 
@@ -68,31 +65,22 @@ class Mutation:
         session = info.context["session"]
         entity = input.to_pydantic()
         entity.owner = session.user
-        await entity.save()
-        properties = [prop.to_pydantic(entity=entity.id) for prop in input.properties]
-        await Property.insert_many(properties)
-        return entity
+        return await entity.save()
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput, info: Info) -> ReportType:
         session = info.context["session"]
         database_access = session.database_access
         permitted_columns = [access.ref.id[0] for access in database_access]
-        columns = [column.to_pydantic() for column in input.columns]
         report = input.to_pydantic()
         report.owner = session
         report.context = session.context
-        for column in columns:
-            await column.fetch_all_links()
-            column.report = link(Report, report.id)
-            property = column.property
-            entity = await property.entity.fetch()
-
+        for column in report.columns:
+            entity = await Entity.find_one(In(Entity.properties.id, [column.prop]))
             if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
                 raise ValueError(f"{entity.id} is not in your access scope.")
 
         return await report.save()
-        await ReportColumn.insert_many(columns)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report_column(self, input: ReportColumnInput) -> ReportColumnType:
