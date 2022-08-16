@@ -15,7 +15,7 @@ async def load_entity(keys) -> List[Topic]:
     return await load(Topic, keys)
 
 
-async def load_property(keys) -> List[Detail]:
+async def load_detail(keys) -> List[Detail]:
     return await load(Detail, keys)
 
 
@@ -23,6 +23,6 @@ async def load_report(keys) -> List[Report]:
     return await load(Report, keys)
 
 
-property_loader = DataLoader(load_fn=load_property)
+detail_loader = DataLoader(load_fn=load_detail)
 entity_loader = DataLoader(load_fn=load_entity)
 report_loader = DataLoader(load_fn=load_report)

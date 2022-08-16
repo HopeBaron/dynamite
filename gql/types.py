@@ -6,7 +6,7 @@ from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
 import models
-from gql.dataloaders import report_loader, property_loader
+from gql.dataloaders import report_loader, detail_loader
 from models import Query
 # === Scalers ===
 from transformer import SqlTransformer
@@ -51,12 +51,12 @@ class DetailType:
 
     @strawberry.field
     async def references(self) -> List["DetailType"]:
-        prop = await property_loader.load(self.id)
+        prop = await detail_loader.load(self.id)
         return await prop.references.to_list()
 
     @strawberry.field
     async def refers_to(self) -> Optional["DetailType"]:
-        prop = await property_loader.load(self.id)
+        prop = await detail_loader.load(self.id)
         return prop.refers_to
 
 
@@ -79,7 +79,7 @@ class ConditionType:
     target: ObjectId
 
     async def target_object(self):
-        return await property_loader.load(self.target)
+        return await detail_loader.load(self.target)
 
 
 @pydantic.type(models.ConditionGroup, all_fields=True)
