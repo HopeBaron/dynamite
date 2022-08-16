@@ -2,8 +2,9 @@ import dataclasses
 from functools import reduce
 from typing import List
 
+from numpy.core.defchararray import lower
 from pydantic import BaseModel
-from sql import Column, Table, Expression, As
+from sql import Column, Table, Expression
 from sql.operators import Or, And
 
 from enums import WhereOperations, ConditionGroupOperations, ColumnJoins
@@ -74,13 +75,23 @@ class SqlTransformer(BaseModel):
             table, column = await self.form_sql_elements(await report_column.fetched_detail)
             self.columns.append(column)
 
+    async def get_typed_values(self, condition: Condition):
+        property = await condition.as_property()
+        type = property.type
+        if type is PropertyTypes.NUMBER:
+            return float(condition.value[0])
+        if type is PropertyTypes.BOOLEAN:
+            return lower(condition.value[0]) == "true"
+        return condition.value
+
     async def append_simple_conditions(self, group):
         group_wheres = []
         for condition in group.conditions:
             condition_related_property = await condition.as_detail()
             table, column = await self.form_sql_elements(condition_related_property)
             operation_function = operators_dict[condition.operation]
-            condition_result = operation_function(column, condition.value)
+            typed_value = await self.get_typed_values(condition)
+            condition_result = operation_function(column, typed_value)
             group_wheres.append(condition_result)
         return group_wheres
 
@@ -89,7 +100,7 @@ class SqlTransformer(BaseModel):
         for group in condition_groups:
             conditions = await self.append_simple_conditions(group)
             group_operation = group_operators_dict[group.operation]
-            self.conditions = reduce(group_operation, conditions)
+            self.conditions.append(reduce(group_operation, conditions))
 
     async def transform(self):
         await self.select_columns()
