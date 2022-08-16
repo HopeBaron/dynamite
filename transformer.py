@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from sql import Column, Table, Expression
 from sql.operators import Or, And
 
-from enums import WhereOperations, ConditionGroupOperations, ColumnJoins
-from models import Report, ReportColumn, Detail
+from enums import WhereOperations, ConditionGroupOperations, ColumnJoins, DetailExpectedType
+from models import Report, ReportColumn, Detail, Condition
 
 joins_dict = {
     ColumnJoins.INNER: Table.join,
@@ -56,11 +56,11 @@ class SqlTransformer(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    async def form_sql_elements(self, property: Detail):
-        entity = await property.topic
+    async def form_sql_elements(self, detail: Detail):
+        entity = await detail.topic
         new_table = Table(entity.database_name)
         table = self.add_table(new_table)
-        column = table.__getattr__(property.database_name)
+        column = table.__getattr__(detail.database_name)
         return Distribution(table, column)
 
     def add_table(self, table: Table):
@@ -76,19 +76,19 @@ class SqlTransformer(BaseModel):
             self.columns.append(column)
 
     async def get_typed_values(self, condition: Condition):
-        property = await condition.as_property()
-        type = property.type
-        if type is PropertyTypes.NUMBER:
+        detail = await condition.as_detail()
+        type = detail.type
+        if type is DetailExpectedType.NUMBER:
             return float(condition.value[0])
-        if type is PropertyTypes.BOOLEAN:
+        if type is DetailExpectedType.BOOLEAN:
             return lower(condition.value[0]) == "true"
         return condition.value
 
     async def append_simple_conditions(self, group):
         group_wheres = []
         for condition in group.conditions:
-            condition_related_property = await condition.as_detail()
-            table, column = await self.form_sql_elements(condition_related_property)
+            condition_related_detail = await condition.as_detail()
+            table, column = await self.form_sql_elements(condition_related_detail)
             operation_function = operators_dict[condition.operation]
             typed_value = await self.get_typed_values(condition)
             condition_result = operation_function(column, typed_value)

@@ -10,7 +10,7 @@ from pymongo import IndexModel
 from sql import Table
 from typing_extensions import Self
 
-from enums import DetailType, WhereOperations, ConditionGroupOperations
+from enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
 from utils import get_model, normalize, sort_by_index
 
 
@@ -56,7 +56,7 @@ class User(Document):
 
 
 class Detail(DatabaseModel, EmbeddedDocument):
-    type: DetailType = DetailType.STRING
+    type: DetailExpectedType = DetailExpectedType.STRING
     refers_to: Optional[PydanticObjectId]
 
     @property
