@@ -42,22 +42,6 @@ async def create_models(gql_input, **kwargs) -> List[DocumentType]:
     return [await create_model(form, **kwargs) for form in gql_input]
 
 
-async def update_model(cls: Document, document_id, gql_input) -> DocumentType | None:
-    entity = await get_model(cls, id=document_id)
-    if entity is None:
-        return None
-    model_input = gql_input.to_pydantic()
-    return await entity.update(**model_input)
-
-
-async def delete_entity(cls, document_id) -> DocumentType | None:
-    entity = await get_model(cls, id=document_id)
-    if entity is None:
-        return None
-    await entity.delete()
-    return entity
-
-
 def partition(pred, iterable):
     trues = []
     falses = []
@@ -67,17 +51,6 @@ def partition(pred, iterable):
         else:
             falses.append(item)
     return trues, falses
-
-
-async def await_to_pydantic(cls, obj):
-    result = []
-    for f in dataclasses.fields(obj):
-        convert = convert_strawberry_class_to_pydantic_model
-        value = await await_maybe(convert(getattr(obj, f.name)))
-        if isinstance(value, Iterable) and not isinstance(value, string_types):
-            value = [await await_maybe(v) for v in value]
-        result.append((f.name, value))
-    return cls(**dict(result))
 
 
 def link(cls: Document, *ids):

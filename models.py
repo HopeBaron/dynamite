@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TypeVar, Generic
 
 import bcrypt
 import pymongo
@@ -7,6 +7,7 @@ from beanie import Document, Link, PydanticObjectId, UnionDoc
 from beanie.odm.operators.find.array import ElemMatch
 from beanie.odm.operators.find.comparison import In
 from pydantic import BaseModel, validator, Field
+from pydantic.generics import GenericModel
 from pymongo import IndexModel
 from typing_extensions import Self
 
@@ -61,7 +62,7 @@ class Property(DatabaseModel, EmbeddedDocument):
 
     @property
     def entity(self):
-        return Entity.find_one(In(Entity.properties.id, [self.id]))
+        return Entity.has_property(self.id)
 
     async def sql(self):
         entity = await self.entity.fetch()
@@ -85,6 +86,10 @@ class Entity(DatabaseModel, Document):
     owner: Optional[Link[User]]
     properties: List[Property]
 
+    @staticmethod
+    def has_property(id: PydanticObjectId):
+        return Entity.find_one(In(Entity.properties.id, [id]))
+
     def prop(self, item):
         return [value for value in self.properties if value.id == item][0]
 
@@ -106,8 +111,9 @@ class Condition(EmbeddedDocument):
     value: List[str]
 
     async def as_property(self):
-        entity = await Entity.find_one(In(Entity.properties.id, [self.target]))
+        entity = await Entity.has_property(self.target)
         return entity.prop(self.target)
+
 
 class ConditionGroup(EmbeddedDocument):
     operation: ConditionGroupOperations
@@ -125,11 +131,12 @@ class ReportColumn(DatabaseModel, EmbeddedDocument):
     prop: PydanticObjectId
 
     def sql(self):
-        return self.prop.sql()
+        prop = await self.fetched_property
+        return prop.sql()
 
     @property
     def fetched_entity(self):
-        return Entity.find_one(In(Entity.properties.id, [self.prop]))
+        return Entity.has_property(self.prop)
 
     @property
     async def fetched_property(self):

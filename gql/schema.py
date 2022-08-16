@@ -76,7 +76,7 @@ class Mutation:
         report.owner = session
         report.context = session.context
         for column in report.columns:
-            entity = await Entity.find_one(In(Entity.properties.id, [column.prop]))
+            entity = await Entity.has_property(column.prop)
             if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
                 raise ValueError(f"{entity.id} is not in your access scope.")
 
