@@ -85,13 +85,6 @@ class Mutation:
 
         return await report.save()
 
-    @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def create_report_column(self, input: ReportColumnInput) -> ReportColumnType:
-        return await create_model(input)
-
-    @strawberry.mutation(permission_classes=[IsOrganizationUser])
-    async def create_detail(self, input: DetailInput) -> DetailType:
-        return await create_model(input)
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={

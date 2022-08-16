@@ -4,7 +4,7 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 # === Complete Inputs ===
-from gql.types import ObjectId
+from gql.types import ObjectId, ConditionValue
 from models import Topic, Detail, Report, ReportColumn, ConditionGroup, User, Condition
 
 
@@ -42,7 +42,7 @@ class ConditionInput:
     operation: auto
     index: auto
     target: ObjectId
-    value: auto
+    value: ConditionValue
 
 
 @pydantic.input(ConditionGroup, all_fields=True)
