@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TypeVar, Any
 
 import bcrypt
 import pymongo
@@ -11,7 +11,7 @@ from sql import Table
 from typing_extensions import Self
 
 from enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
-from utils import get_model, normalize, sort_by_index
+from utils import normalize, sort_by_index
 
 
 class EmbeddedDocument(BaseModel):
@@ -31,8 +31,8 @@ class User(Document):
 
     @classmethod
     async def create_user(cls, username, password) -> Self:
-        matching_users = await User.find(User.username == username).count()
-        if matching_users != 0:
+        matching_user = await User.find_one(User.username == username)
+        if matching_user:
             raise ValueError("This username is already taken.")
         encoded_password = password.encode('utf-8')
         salt = bcrypt.gensalt()
@@ -43,7 +43,7 @@ class User(Document):
 
     @staticmethod
     async def validate_credentials(username: str, password: str):
-        user: User = await get_model(User, username=username)
+        user: User = await User.find_one(User.username == username)
         if not user:
             return None
         hashed_password = user.password.encode('utf-8')
@@ -91,8 +91,10 @@ class Topic(DatabaseModel, Document):
 
     def detail(self, item):
         return [value for value in self.details if value.id == item][0]
+
     def sql(self):
         return Table(self.database_name)
+
     class Settings:
         indexes = [
             IndexModel([("database_name", pymongo.ASCENDING)], unique=True, name="database_name_index")
@@ -103,12 +105,14 @@ Topic.update_forward_refs()
 
 Detail.update_forward_refs()
 
+T = TypeVar("T")
+
 
 class Condition(EmbeddedDocument):
     operation: WhereOperations
     index: int = 0
     target: PydanticObjectId
-    value: List[str]
+    value: List[Any]
 
     async def as_detail(self):
         topic = await Topic.has_detail(self.target)
@@ -169,7 +173,7 @@ class Session(Document):
 
 class Query(BaseModel):
     select: str
-    values: List[str]
+    values: List[Any]
 
 
 class Report(DatabaseModel, Document):

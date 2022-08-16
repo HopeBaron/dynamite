@@ -20,21 +20,8 @@ def sort_by_index(cls, value) -> List[Any]:
     return value
 
 
-async def get_models(cls: Document, limit=100) -> List[DocumentType]:
-    return await cls.find_many(limit=limit, fetch_links=True).to_list()
 
 
-async def get_model(cls: Document, **kwargs) -> DocumentType | None:
-    return await cls.find_one(kwargs, fetch_links=True)
-
-
-async def create_model(gql_input, **kwargs) -> DocumentType:
-    obj = await await_maybe(gql_input.to_pydantic(**kwargs))
-    return await obj.insert()
-
-
-async def create_models(gql_input, **kwargs) -> List[DocumentType]:
-    return [await create_model(form, **kwargs) for form in gql_input]
 
 
 def partition(pred, iterable):

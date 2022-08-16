@@ -18,6 +18,13 @@ ObjectId = strawberry.scalar(
     description="MongoDB ObjectId"
 )
 
+ConditionValue = strawberry.scalar(
+    Any,
+    serialize=lambda v: v,
+    parse_value=lambda v: v,
+    description="Condition Value"
+)
+
 
 # === Authentication models ===
 
@@ -75,7 +82,7 @@ class ConditionType:
     id: auto
     operation: auto
     index: auto
-    value: auto
+    value: ConditionValue
     target: ObjectId
 
     async def target_object(self):
@@ -95,9 +102,10 @@ class ReportColumnType:
     detail: DetailType
 
 
-@pydantic.type(models.Query, all_fields=True)
+@pydantic.type(models.Query)
 class QueryType:
-    pass
+    select: auto
+    values: List[ConditionValue]
 
 
 @pydantic.type(models.Report)
@@ -105,6 +113,7 @@ class ReportType:
     id: auto
     condition_groups: auto
     root_operation: auto
+    columns: auto
     owner: PydanticObjectId
 
     def from_pydantic(instance: models.Report, extra: Dict[str, Any] = None):
@@ -112,10 +121,6 @@ class ReportType:
         owner = dict.pop("owner")
         id = owner.ref.id
         return ReportType(owner=id, **dict)
-    @strawberry.field
-    async def columns(self) -> List["ReportColumnType"]:
-        loader = await report_loader.load(self.id)
-        return loader.columns
 
     @strawberry.field
     async def query(self) -> Optional[QueryType]:
