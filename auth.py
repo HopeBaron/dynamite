@@ -6,7 +6,7 @@ import pyseto
 from beanie import Link
 from pyseto import Key
 
-from models import Session, User, ConditionGroup, Entity
+from models import Session, User, ConditionGroup, Topic
 
 
 
@@ -32,10 +32,10 @@ class Auth:
 
     def create_session(
             self,
-            context: str,
             user: User,
+            context: Optional[str] = None,
             master_token: Optional[str] = None,
-            database_access: List[Link[Entity]]=[],
+            database_access: List[Link[Topic]]=[],
             conditions: List[ConditionGroup] = []) -> Session:
         token = self.create_token(master_token)
         return Session.construct(

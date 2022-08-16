@@ -5,10 +5,9 @@ from beanie import PydanticObjectId
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
-from models import Query
 import models
-from gql.dataloaders import property_loader, entity_loader, report_loader
-
+from gql.dataloaders import report_loader, property_loader
+from models import Query
 # === Scalers ===
 from transformer import SqlTransformer
 
@@ -43,38 +42,32 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 
 # === Domain models ===
 
-@pydantic.type(models.Entity)
-class EntityType:
-    id: ObjectId
-    pivot: auto
-    display_name: auto
-    database_name: auto
-    owner: UserType
-    properties: List["PropertyType"]
-
-    @strawberry.field
-    async def properties(self) -> List["PropertyType"]:
-        entity = await entity_loader.load(self.id)
-        return await entity.properties.to_list()
-
-
-@pydantic.type(models.Property)
-class PropertyType:
+@pydantic.type(models.Detail)
+class DetailType:
     id: ObjectId
     type: auto
     display_name: auto
     database_name: auto
-    entity: EntityType
 
     @strawberry.field
-    async def references(self) -> List["PropertyType"]:
+    async def references(self) -> List["DetailType"]:
         prop = await property_loader.load(self.id)
         return await prop.references.to_list()
 
     @strawberry.field
-    async def refers_to(self) -> Optional["PropertyType"]:
+    async def refers_to(self) -> Optional["DetailType"]:
         prop = await property_loader.load(self.id)
         return prop.refers_to
+
+
+@pydantic.type(models.Topic)
+class TopicType:
+    id: ObjectId
+    details: List["DetailType"]
+    pivot: auto
+    display_name: auto
+    database_name: auto
+    owner: UserType
 
 
 @pydantic.type(models.Condition)
@@ -99,7 +92,7 @@ class ReportColumnType:
     id: auto
     index: auto
     report: LazyType["ReportType", __name__]
-    property: PropertyType
+    detail: DetailType
 
 
 @pydantic.type(models.Query, all_fields=True)
@@ -122,7 +115,7 @@ class ReportType:
     @strawberry.field
     async def columns(self) -> List["ReportColumnType"]:
         loader = await report_loader.load(self.id)
-        return await loader.columns().to_list()
+        return loader.columns
 
     @strawberry.field
     async def query(self) -> Optional[QueryType]:

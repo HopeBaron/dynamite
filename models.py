@@ -3,17 +3,19 @@ from typing import List, Optional
 
 import bcrypt
 import pymongo
-from beanie import Document, Link, PydanticObjectId, UnionDoc
+from beanie import Document, Link, PydanticObjectId
+from beanie.odm.operators.find.comparison import In
 from pydantic import BaseModel, validator, Field
 from pymongo import IndexModel
+from sql import Table
 from typing_extensions import Self
 
-from enums import PropertyTypes, WhereOperations, ConditionGroupOperations
-from utils import create_model, get_model, normalize, sort_by_index
+from enums import DetailType, WhereOperations, ConditionGroupOperations
+from utils import get_model, normalize, sort_by_index
 
 
 class EmbeddedDocument(BaseModel):
-    id: Optional[PydanticObjectId] = Field(default_factory=PydanticObjectId, alias="_id")
+    id: Optional[PydanticObjectId] = Field(default_factory=PydanticObjectId, alias="id")
 
 
 class DatabaseModel(BaseModel):
@@ -53,13 +55,16 @@ class User(Document):
         return None
 
 
-class Property(DatabaseModel, Document):
-    type: PropertyTypes = PropertyTypes.STRING
-    entity: Link["Entity"]
-    refers_to: Optional[Link["Property"]]
+class Detail(DatabaseModel, EmbeddedDocument):
+    type: DetailType = DetailType.STRING
+    refers_to: Optional[PydanticObjectId]
+
+    @property
+    def topic(self):
+        return Topic.has_detail(self.id)
 
     async def sql(self):
-        entity = await self.entity.fetch()
+        entity = await self.topic
         table = entity.sql()
         column_name = self.database_name
         return table.__getattr__(column_name)
@@ -72,29 +77,31 @@ class Property(DatabaseModel, Document):
 
     @property
     def references(self):
-        return Property.find(Property.refers_to.id == self.id)
+        return Detail.find(Detail.refers_to.id == self.id)
 
 
-class Entity(DatabaseModel, Document):
+class Topic(DatabaseModel, Document):
     pivot: bool = False
-    owner: Link[User]
+    owner: Optional[Link[User]]
+    details: List[Detail]
 
-    def prop(self, item):
-        pass
+    @staticmethod
+    def has_detail(id: PydanticObjectId):
+        return Topic.find_one(In(Topic.details.id, [id]))
 
-    @property
-    def properties(self):
-        return Property.find(Property.entity.id == self.id)
-
+    def detail(self, item):
+        return [value for value in self.details if value.id == item][0]
+    def sql(self):
+        return Table(self.database_name)
     class Settings:
         indexes = [
             IndexModel([("database_name", pymongo.ASCENDING)], unique=True, name="database_name_index")
         ]
 
 
-Entity.update_forward_refs()
+Topic.update_forward_refs()
 
-Property.update_forward_refs()
+Detail.update_forward_refs()
 
 
 class Condition(EmbeddedDocument):
@@ -103,8 +110,9 @@ class Condition(EmbeddedDocument):
     target: PydanticObjectId
     value: List[str]
 
-    async def as_property(self):
-        return await Property.get(self.target)
+    async def as_detail(self):
+        topic = await Topic.has_detail(self.target)
+        return topic.detail(self.target)
 
 
 class ConditionGroup(EmbeddedDocument):
@@ -114,17 +122,26 @@ class ConditionGroup(EmbeddedDocument):
 
     _sort_conditions = validator('conditions', allow_reuse=True)(sort_by_index)
 
-    async def as_properties(self):
-        return [await condition.as_property() for condition in self.conditions]
+    async def as_details(self):
+        return [await condition.as_detail() for condition in self.conditions]
 
 
-class ReportColumn(DatabaseModel, Document):
+class ReportColumn(DatabaseModel, EmbeddedDocument):
     index: int = 0
-    report: Link["Report"]
-    property: Link[Property]
+    detail: PydanticObjectId
 
-    def sql(self):
-        return self.property.sql()
+    async def sql(self):
+        prop = await self.fetched_detail
+        return prop.sql()
+
+    @property
+    def fetched_topic(self):
+        return Topic.has_detail(self.detail)
+
+    @property
+    async def fetched_detail(self):
+        entity = await self.fetched_topic
+        return entity.detail(self.detail)
 
 
 class Session(Document):
@@ -133,12 +150,12 @@ class Session(Document):
     master_token: Optional[str]
     user: Link[User]
     used_since: datetime
-    database_access: List[Link[Entity]] = []
+    topic_access: List[Link[Topic]] = []
     conditions: List[ConditionGroup] = []
 
     async def create_slave_session(self,
                                    context: str,
-                                   database_access: List[Link[Entity]],
+                                   database_access: List[Link[Topic]],
                                    conditions: List[ConditionGroup]):
         from auth import Auth
         return Auth().create_session(
@@ -157,13 +174,11 @@ class Query(BaseModel):
 
 class Report(DatabaseModel, Document):
     condition_groups: List[ConditionGroup] = []
+    columns: List[ReportColumn] = []
     root_operation: ConditionGroupOperations = ConditionGroupOperations.AND
-    owner: Link[Session]
-    context: str
+    owner: Optional[Link[Session]]
+    context: Optional[str]
     _sort_condition_groups = validator('condition_groups', allow_reuse=True)(sort_by_index)
-
-    def columns(self, fetch_links: bool = True):
-        return ReportColumn.find(ReportColumn.report.id == self.id, fetch_links=fetch_links)
 
 
 ReportColumn.update_forward_refs()
