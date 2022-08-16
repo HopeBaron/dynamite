@@ -1,14 +1,9 @@
-import dataclasses
 import re
-from typing import Any, List, TypeVar, Tuple, Iterable
+from typing import Any, List, TypeVar
 
 from beanie import Document, Link
 from bson import DBRef
-from six import string_types
-from strawberry.experimental.pydantic.conversion import convert_strawberry_class_to_pydantic_model
 from strawberry.utils.await_maybe import await_maybe
-
-from enums import ConditionGroupOperations
 
 DocumentType = TypeVar("DocumentType", bound="Document")
 

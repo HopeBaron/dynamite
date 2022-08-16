@@ -5,10 +5,9 @@ from beanie import PydanticObjectId
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
-from models import Query
 import models
-from gql.dataloaders import entity_loader, report_loader, property_loader
-
+from gql.dataloaders import report_loader, property_loader
+from models import Query
 # === Scalers ===
 from transformer import SqlTransformer
 
@@ -43,28 +42,28 @@ LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 
 # === Domain models ===
 
-@pydantic.type(models.Property)
-class PropertyType:
+@pydantic.type(models.Detail)
+class DetailType:
     id: ObjectId
     type: auto
     display_name: auto
     database_name: auto
 
     @strawberry.field
-    async def references(self) -> List["PropertyType"]:
+    async def references(self) -> List["DetailType"]:
         prop = await property_loader.load(self.id)
         return await prop.references.to_list()
 
     @strawberry.field
-    async def refers_to(self) -> Optional["PropertyType"]:
+    async def refers_to(self) -> Optional["DetailType"]:
         prop = await property_loader.load(self.id)
         return prop.refers_to
 
 
-@pydantic.type(models.Entity)
-class EntityType:
+@pydantic.type(models.Topic)
+class TopicType:
     id: ObjectId
-    properties: List["PropertyType"]
+    details: List["DetailType"]
     pivot: auto
     display_name: auto
     database_name: auto
@@ -93,7 +92,7 @@ class ReportColumnType:
     id: auto
     index: auto
     report: LazyType["ReportType", __name__]
-    prop: PropertyType
+    detail: DetailType
 
 
 @pydantic.type(models.Query, all_fields=True)

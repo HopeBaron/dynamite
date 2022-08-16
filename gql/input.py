@@ -1,13 +1,11 @@
-import dataclasses
-from typing import Optional, List
+from typing import Optional
 
 from strawberry import auto
 from strawberry.experimental import pydantic
 
 # === Complete Inputs ===
 from gql.types import ObjectId
-from models import Entity, Property, Report, ReportColumn, ConditionGroup, User, Condition
-from utils import link
+from models import Topic, Detail, Report, ReportColumn, ConditionGroup, User, Condition
 
 
 @pydantic.input(User)
@@ -16,27 +14,27 @@ class UserInput:
     password: auto
 
 
-@pydantic.input(Property)
-class PropertyInput:
+@pydantic.input(Detail)
+class DetailInput:
     database_name: auto
     display_name: auto
     type: auto
     refers_to: Optional[ObjectId]
 
 
-@pydantic.input(Entity)
-class EntityInput:
+@pydantic.input(Topic)
+class TopicInput:
     database_name: auto
     display_name: auto
     pivot: auto
-    properties: auto
+    details: auto
 
 @pydantic.input(ReportColumn)
 class ReportColumnInput:
     database_name: auto
     display_name: auto
     index: auto
-    prop: ObjectId
+    detail: ObjectId
 
 
 @pydantic.input(Condition)

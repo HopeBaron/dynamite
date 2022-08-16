@@ -7,7 +7,7 @@ from sql import Column, Table, Expression, As
 from sql.operators import Or, And
 
 from enums import WhereOperations, ConditionGroupOperations, ColumnJoins
-from models import Report, ReportColumn, Property
+from models import Report, ReportColumn, Detail
 
 joins_dict = {
     ColumnJoins.INNER: Table.join,
@@ -55,8 +55,8 @@ class SqlTransformer(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    async def form_sql_elements(self, property: Property):
-        entity = await property.entity
+    async def form_sql_elements(self, property: Detail):
+        entity = await property.topic
         new_table = Table(entity.database_name)
         table = self.add_table(new_table)
         column = table.__getattr__(property.database_name)
@@ -71,13 +71,13 @@ class SqlTransformer(BaseModel):
         report = self.report
         report_columns: List[ReportColumn] = report.columns
         for report_column in report_columns:
-            table, column = await self.form_sql_elements(await report_column.fetched_property)
+            table, column = await self.form_sql_elements(await report_column.fetched_detail)
             self.columns.append(column)
 
     async def append_simple_conditions(self, group):
         group_wheres = []
         for condition in group.conditions:
-            condition_related_property = await condition.as_property()
+            condition_related_property = await condition.as_detail()
             table, column = await self.form_sql_elements(condition_related_property)
             operation_function = operators_dict[condition.operation]
             condition_result = operation_function(column, condition.value)
