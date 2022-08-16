@@ -4,7 +4,7 @@ import strawberry
 
 
 @strawberry.enum
-class DetailType(Enum):
+class DetailExpectedType(Enum):
     NUMBER = "Number"
     STRING = "String"
     BOOLEAN = "Boolean"
