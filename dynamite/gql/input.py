@@ -4,8 +4,8 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 # === Complete Inputs ===
-from gql.types import ObjectId, ConditionValue
-from models import Topic, Detail, Report, ReportColumn, ConditionGroup, User, Condition
+from dynamite.gql.types import ObjectId, ConditionValue
+from dynamite.models import Topic, Detail, Report, ReportColumn, ConditionGroup, User, Condition
 
 
 @pydantic.input(User)

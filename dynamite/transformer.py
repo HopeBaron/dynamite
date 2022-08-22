@@ -2,12 +2,13 @@ import dataclasses
 from functools import reduce
 from typing import List
 
+from numpy.core.defchararray import lower
 from pydantic import BaseModel
 from sql import Column, Table, Expression
 from sql.operators import Or, And
 
-from enums import WhereOperations, ConditionGroupOperations, ColumnJoins
-from models import Report, ReportColumn, Detail
+from dynamite.enums import WhereOperations, ConditionGroupOperations, ColumnJoins, DetailExpectedType
+from dynamite.models import Report, ReportColumn, Detail, Condition
 
 joins_dict = {
     ColumnJoins.INNER: Table.join,
@@ -48,8 +49,8 @@ class Distribution:
 
 class SqlTransformer(BaseModel):
     report: Report
-    tables: dict[str, Table] = {}
-    columns: list[Column] = []
+    tables: Dict[str, Table] = {}
+    columns: List[Column] = []
     conditions: List[Expression | Or | And] = []
 
     class Config:
@@ -73,6 +74,15 @@ class SqlTransformer(BaseModel):
         for report_column in report_columns:
             table, column = await self.form_sql_elements(await report_column.fetched_detail)
             self.columns.append(column)
+
+    async def get_typed_values(self, condition: Condition):
+        detail = await condition.as_detail()
+        type = detail.type
+        if type is DetailExpectedType.NUMBER:
+            return float(condition.value[0])
+        if type is DetailExpectedType.BOOLEAN:
+            return lower(condition.value[0]) == "true"
+        return condition.value
 
     async def append_simple_conditions(self, group):
         group_wheres = []

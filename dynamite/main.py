@@ -4,13 +4,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.requests import Request
 from strawberry.fastapi import GraphQLRouter
 
-from auth import Auth
-from gql.schema import schema
-from models import *
+from dynamite.auth import Auth
+from dynamite.gql.schema import schema
+from dynamite.models import *
 
 
 async def init_database():
-    client = AsyncIOMotorClient()
+    client = AsyncIOMotorClient("database")
 
     await init_beanie(database=client.qb_db, document_models=[Topic, Report, User, Session])
 
