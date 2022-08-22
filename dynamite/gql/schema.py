@@ -1,12 +1,15 @@
+import strawberry
+from beanie import PydanticObjectId
 from beanie.odm.operators.find.comparison import In
 from strawberry.types import Info
 
-from auth import Auth
-from gql.input import *
-from gql.permissions import IsAuthenticated, IsOrganizationUser
-from gql.types import *
-from models import Report, User, Topic
-from utils import *
+from dynamite.auth import Auth
+from dynamite.gql.input import TopicInput, UserInput, ConditionGroupInput, ReportInput, DetailInput, ReportColumnInput
+from dynamite.gql.permissions import IsAuthenticated, IsOrganizationUser
+from dynamite.gql.types import UserType, LoginSuccess, LoginError, TopicType, ObjectId, ReportType, LoginResult, DetailType, \
+    ReportColumnType
+from dynamite.models import Report, User, Topic, Session
+from dynamite.utils import *
 
 
 @strawberry.type
@@ -18,7 +21,7 @@ class Query:
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def topics(self, info: Info, limit: int = 100) -> list[TopicType]:
-        session: models.Session = info.context["session"]
+        session: Session = info.context["session"]
         condition = Topic.owner == session.user and In(Topic.id, session.topic_access)
         if session.context:
             return await Topic.find(condition, limit=limit, fetch_links=True).to_list()

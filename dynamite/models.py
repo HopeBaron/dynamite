@@ -10,8 +10,8 @@ from pymongo import IndexModel
 from sql import Table
 from typing_extensions import Self
 
-from enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
-from utils import get_model, normalize, sort_by_index
+from dynamite.enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
+from dynamite.utils import get_model, normalize, sort_by_index
 
 
 class EmbeddedDocument(BaseModel):

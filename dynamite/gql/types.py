@@ -5,11 +5,11 @@ from beanie import PydanticObjectId
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
-import models
-from gql.dataloaders import report_loader, detail_loader
-from models import Query
+from dynamite import models
+from dynamite.gql.dataloaders import report_loader, detail_loader
+from dynamite.models import Query
 # === Scalers ===
-from transformer import SqlTransformer
+from dynamite.transformer import SqlTransformer
 
 ObjectId = strawberry.scalar(
     PydanticObjectId,

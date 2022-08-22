@@ -4,7 +4,7 @@ from beanie import Document
 from beanie.odm.operators.find.comparison import In
 from strawberry.dataloader import DataLoader
 
-from models import Topic, Detail, Report
+from dynamite.models import Topic, Detail, Report
 
 
 async def load(cls: Document, keys):

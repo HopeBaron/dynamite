@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from sql import Column, Table, Expression
 from sql.operators import Or, And
 
-from enums import WhereOperations, ConditionGroupOperations, ColumnJoins, DetailExpectedType
-from models import Report, ReportColumn, Detail, Condition
+from dynamite.enums import WhereOperations, ConditionGroupOperations, ColumnJoins, DetailExpectedType
+from dynamite.models import Report, ReportColumn, Detail, Condition
 
 joins_dict = {
     ColumnJoins.INNER: Table.join,
