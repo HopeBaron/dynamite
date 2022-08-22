@@ -1,6 +1,6 @@
 import dataclasses
 from functools import reduce
-from typing import List
+from typing import List, Dict
 
 from numpy.core.defchararray import lower
 from pydantic import BaseModel

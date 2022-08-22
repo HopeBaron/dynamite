@@ -11,7 +11,7 @@ from sql import Table
 from typing_extensions import Self
 
 from dynamite.enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
-from dynamite.utils import get_model, normalize, sort_by_index
+from dynamite.utils import normalize, sort_by_index
 
 
 class EmbeddedDocument(BaseModel):
