@@ -10,7 +10,7 @@ from models import *
 
 
 async def init_database():
-    client = AsyncIOMotorClient()
+    client = AsyncIOMotorClient("database")
 
     await init_beanie(database=client.qb_db, document_models=[Topic, Report, User, Session])
 

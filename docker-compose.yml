@@ -1,0 +1,20 @@
+services:
+  database:
+    image: "mongo"
+    ports:
+      - 27017:27017
+    volumes:
+      - db-data:/data/db
+      - mongo-config:/data/configdb
+  app:
+    build: .
+    working_dir: /code
+    volumes:
+      - .:/code
+    ports:
+      - 8000:8000
+    depends_on:
+      - database
+volumes:
+  db-data:
+  mongo-config:

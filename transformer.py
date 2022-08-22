@@ -1,6 +1,6 @@
 import dataclasses
 from functools import reduce
-from typing import List
+from typing import List, Dict
 
 from numpy.core.defchararray import lower
 from pydantic import BaseModel
@@ -49,8 +49,8 @@ class Distribution:
 
 class SqlTransformer(BaseModel):
     report: Report
-    tables: dict[str, Table] = {}
-    columns: list[Column] = []
+    tables: Dict[str, Table] = {}
+    columns: List[Column] = []
     conditions: List[Expression | Or | And] = []
 
     class Config:
