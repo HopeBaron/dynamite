@@ -9,12 +9,20 @@ services:
   app:
     build: .
     working_dir: /code
-    volumes:
-      - .:/code
     ports:
       - 8000:8000
     depends_on:
       - database
+    secrets:
+      - private_key
+      - public_key
+
 volumes:
   db-data:
   mongo-config:
+
+secrets:
+  private_key:
+    file: ./env/private_key.pem
+  public_key:
+    file: ./env/private_key.pem

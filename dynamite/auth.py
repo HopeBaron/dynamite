@@ -13,10 +13,10 @@ class Auth:
     _instance = None
 
     def __init__(self) -> None:
-        with open("env/private_key.pem") as key_file:
+        with open("/run/secrets/private_key") as key_file:
             self.private_key = Key.new(4, "public", key_file.read())
 
-        with open("env/public_key.pem") as key_file:
+        with open("/run/secrets/public_key") as key_file:
             self.public_key = Key.new(4, "public", key_file.read())
 
     def __new__(cls):
