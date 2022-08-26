@@ -1,15 +1,25 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TypeVar, Union
 
 import strawberry
 from beanie import PydanticObjectId
 from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
-from dynamite import models
+from dynamite import models, errors
 from dynamite.gql.dataloaders import report_loader, detail_loader
 from dynamite.models import Query
 # === Scalers ===
 from dynamite.transformer import SqlTransformer
+
+
+@pydantic.type(model=errors.DynamiteError, all_fields=True)
+class DynamiteErrorType:
+    pass
+
+
+T = TypeVar("T")
+
+DynamiteResult = Union[T, DynamiteErrorType]
 
 ObjectId = strawberry.scalar(
     PydanticObjectId,
@@ -37,14 +47,6 @@ class UserType:
 class LoginSuccess:
     user: UserType
     token: str
-
-
-@strawberry.type
-class LoginError:
-    message: str
-
-
-LoginResult = strawberry.union("LoginResult", (LoginSuccess, LoginError))
 
 
 # === Domain models ===

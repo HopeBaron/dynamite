@@ -4,10 +4,10 @@ from beanie.odm.operators.find.comparison import In
 from strawberry.types import Info
 
 from dynamite.auth import Auth
-from dynamite.gql.input import TopicInput, UserInput, ConditionGroupInput, ReportInput, DetailInput, ReportColumnInput
+from dynamite.errors import DynamiteError
+from dynamite.gql.input import TopicInput, UserInput, ConditionGroupInput, ReportInput
 from dynamite.gql.permissions import IsAuthenticated, IsOrganizationUser
-from dynamite.gql.types import UserType, LoginSuccess, LoginError, TopicType, ObjectId, ReportType, LoginResult, DetailType, \
-    ReportColumnType
+from dynamite.gql.types import UserType, LoginSuccess, TopicType, ObjectId, ReportType, DynamiteResult
 from dynamite.models import Report, User, Topic, Session
 from dynamite.utils import *
 
@@ -53,28 +53,28 @@ class Mutation:
         return slave_session.token
 
     @strawberry.mutation
-    async def create_user(self, input: UserInput) -> UserType:
+    async def create_user(self, input: UserInput) -> DynamiteResult[UserType]:
         user = await User.create_user(input.username, input.password)
         return UserType.from_pydantic(user)
 
     @strawberry.mutation
-    async def authenticate_user(self, username: str, password: str) -> LoginResult:
+    async def authenticate_user(self, username: str, password: str) -> DynamiteResult[LoginSuccess]:
         user = await User.validate_credentials(username, password)
         if not user:
-            return LoginError("Username or password are invalid.")
+            return DynamiteError(message="test", code=123)
         session = Auth().create_session(user)
         await session.save()
         return LoginSuccess(user, session.token)
 
     @strawberry.mutation(permission_classes=[IsOrganizationUser])
-    async def create_topic(self, input: TopicInput, info: Info) -> TopicType:
+    async def create_topic(self, input: TopicInput, info: Info) -> DynamiteResult[TopicType]:
         session = info.context["session"]
         entity = input.to_pydantic()
         entity.owner = session.user
         return await entity.save()
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def create_report(self, input: ReportInput, info: Info) -> ReportType:
+    async def create_report(self, input: ReportInput, info: Info) -> DynamiteResult[ReportType]:
         session = info.context["session"]
         database_access = session.topic_access
         permitted_columns = [access.ref.id[0] for access in database_access]

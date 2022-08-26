@@ -8,7 +8,7 @@ from sql import Column, Table, Expression
 from sql.operators import Or, And
 
 from dynamite.enums import WhereOperations, ConditionGroupOperations, ColumnJoins, DetailExpectedType
-from dynamite.models import Report, ReportColumn, Detail, Condition
+from dynamite.models import Report, ReportColumn, Detail, Condition, ConditionGroup
 
 joins_dict = {
     ColumnJoins.INNER: Table.join,
@@ -84,7 +84,7 @@ class SqlTransformer(BaseModel):
             return lower(condition.value[0]) == "true"
         return condition.value
 
-    async def append_simple_conditions(self, group):
+    async def append_simple_conditions(self, group: ConditionGroup):
         group_wheres = []
         for condition in group.conditions:
             condition_related_detail = await condition.as_detail()
