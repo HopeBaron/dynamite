@@ -5,6 +5,8 @@ from beanie import Document, Link
 from bson import DBRef
 from strawberry.utils.await_maybe import await_maybe
 
+from dynamite.errors import DynamiteError, DynamiteErrorTypes
+
 DocumentType = TypeVar("DocumentType", bound="Document")
 
 
@@ -12,7 +14,7 @@ def normalize(value: str) -> str:
     if re.match(r'^\w+$', value):
         return value
     message = "Only alphanumerics and underscores names are allowed."
-    raise ValueError(message)
+    raise DynamiteError(DynamiteErrorTypes.DISALLOWED_CHARACTERS, message)
 
 
 def sort_by_index(cls, value) -> List[Any]:

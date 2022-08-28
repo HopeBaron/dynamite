@@ -6,15 +6,17 @@ from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
 from dynamite import models, errors
+from dynamite.errors import DynamiteErrorTypes
 from dynamite.gql.dataloaders import report_loader, detail_loader
 from dynamite.models import Query
 # === Scalers ===
 from dynamite.transformer import SqlTransformer
 
 
-@pydantic.type(model=errors.DynamiteError, all_fields=True)
+@strawberry.type
 class DynamiteErrorType:
-    pass
+    message: str
+    code: DynamiteErrorTypes
 
 
 T = TypeVar("T")

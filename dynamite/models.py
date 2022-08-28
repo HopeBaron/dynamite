@@ -11,6 +11,7 @@ from sql import Table
 from typing_extensions import Self
 
 from dynamite.enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
+from dynamite.errors import DynamiteError, DynamiteErrorTypes
 from dynamite.utils import normalize, sort_by_index
 
 
@@ -33,7 +34,7 @@ class User(Document):
     async def create_user(cls, username, password) -> Self:
         matching_user = await User.find_one(User.username == username)
         if matching_user:
-            raise ValueError("This username is already taken.")
+            raise DynamiteError(DynamiteErrorTypes.ENTITY_ALREADY_EXIST, "This username is already taken.")
         encoded_password = password.encode('utf-8')
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(encoded_password, salt)
