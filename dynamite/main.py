@@ -1,3 +1,5 @@
+import os
+
 from beanie import init_beanie
 from fastapi import FastAPI, Depends
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -10,7 +12,10 @@ from dynamite.models import *
 
 
 async def init_database():
-    client = AsyncIOMotorClient("database")
+    db_username = os.environ["db_username"]
+    db_password = os.environ["db_password"]
+    print("SENPAI", db_username, db_password)
+    client = AsyncIOMotorClient(host="database", username=db_username, password=db_password)
 
     await init_beanie(database=client.qb_db, document_models=[Topic, Report, User, Session])
 

@@ -2,10 +2,13 @@ services:
   database:
     image: "mongo"
     ports:
-      - 27016:27017
+      - 27017:27017
     volumes:
       - db-data:/data/db
       - mongo-config:/data/configdb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
   app:
     build: .
     working_dir: /code
@@ -16,6 +19,9 @@ services:
     secrets:
       - private_key
       - public_key
+    environment:
+      db_username: root
+      db_password: example
 
 volumes:
   db-data:
