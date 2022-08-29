@@ -4,10 +4,10 @@ from beanie.odm.operators.find.comparison import In
 from strawberry.types import Info
 
 from dynamite.auth import Auth
-from dynamite.errors import DynamiteError
 from dynamite.gql.input import TopicInput, UserInput, ConditionGroupInput, ReportInput
 from dynamite.gql.permissions import IsAuthenticated, IsOrganizationUser
-from dynamite.gql.types import UserType, LoginSuccess, TopicType, ObjectId, ReportType, DynamiteResult
+from dynamite.gql.types import UserType, LoginSuccess, TopicType, ObjectId, ReportType, DynamiteResult, \
+    DynamiteErrorType
 from dynamite.models import Report, User, Topic, Session
 from dynamite.utils import *
 
@@ -38,7 +38,7 @@ class Query:
 @strawberry.type
 class Mutation:
 
-    @strawberry.mutation(IsOrganizationUser)
+    @strawberry.mutation(permission_classes=[IsOrganizationUser])
     async def request_token(
             self,
             info: Info,
@@ -54,39 +54,47 @@ class Mutation:
 
     @strawberry.mutation
     async def create_user(self, input: UserInput) -> DynamiteResult[UserType]:
-        user = await User.create_user(input.username, input.password)
-        return UserType.from_pydantic(user)
+        try:
+            user = await User.create_user(input.username, input.password)
+            return UserType.from_pydantic(user)
+        except DynamiteError as error:
+            return DynamiteErrorType(code= error.code, message=error.message)
 
     @strawberry.mutation
     async def authenticate_user(self, username: str, password: str) -> DynamiteResult[LoginSuccess]:
         user = await User.validate_credentials(username, password)
         if not user:
-            return DynamiteError(message="test", code=123)
+            return DynamiteErrorType(code=DynamiteErrorTypes.INVALID_LOGIN, message="Username or password are incorrect.")
         session = Auth().create_session(user)
         await session.save()
         return LoginSuccess(user, session.token)
 
     @strawberry.mutation(permission_classes=[IsOrganizationUser])
     async def create_topic(self, input: TopicInput, info: Info) -> DynamiteResult[TopicType]:
-        session = info.context["session"]
-        entity = input.to_pydantic()
-        entity.owner = session.user
-        return await entity.save()
-
+        try:
+            session = info.context["session"]
+            entity = input.to_pydantic()
+            entity.owner = session.user
+            return await entity.save()
+        except DynamiteError as error:
+            return DynamiteErrorType(code=error.code, message=error.message)
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput, info: Info) -> DynamiteResult[ReportType]:
-        session = info.context["session"]
-        database_access = session.topic_access
-        permitted_columns = [access.ref.id[0] for access in database_access]
-        report = input.to_pydantic()
-        report.owner = session
-        report.context = session.context
-        for column in report.columns:
-            entity = await Topic.has_detail(column.detail)
-            if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
-                raise ValueError(f"{entity.id} is not in your access scope.")
+        try:
+            session = info.context["session"]
+            database_access = session.topic_access
+            permitted_columns = [access.ref.id[0] for access in database_access]
+            report = input.to_pydantic()
+            report.owner = session
+            report.context = session.context
+            for column in report.columns:
+                entity = await Topic.has_detail(column.detail)
+                if not len(permitted_columns) == 0 and entity.id not in permitted_columns:
+                    raise DynamiteError(DynamiteErrorTypes.NOT_IN_SCOPE, f"{entity.id} is not in your access scope.")
 
-        return await report.save()
+            return await report.save()
+        except DynamiteError as error:
+            return DynamiteErrorType(code=error.code, message=error.message)
 
 
 
