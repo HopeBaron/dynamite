@@ -16,7 +16,10 @@ async def load_entity(keys) -> List[Topic]:
 
 
 async def load_detail(keys) -> List[Detail]:
-    return await load(Detail, keys)
+    async def find_detail(key):
+        topic = await Topic.has_detail(key)
+        return await topic.detail(key)
+    return [await find_detail(key) for key in keys]
 
 
 async def load_report(keys) -> List[Report]:

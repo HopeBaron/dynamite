@@ -90,6 +90,7 @@ class Topic(DatabaseModel, Document):
     def has_detail(id: PydanticObjectId):
         return Topic.find_one(In(Topic.details.id, [id]))
 
+
     def detail(self, item):
         return [value for value in self.details if value.id == item][0]
 
