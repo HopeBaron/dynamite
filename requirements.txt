@@ -37,7 +37,7 @@ PyYAML==6.0
 six==1.16.0
 sniffio==1.2.0
 starlette==0.17.1
-strawberry-graphql==0.119.1
+strawberry-graphql==0.130.0
 toml==0.10.2
 typing_extensions==4.3.0
 uvicorn==0.17.6

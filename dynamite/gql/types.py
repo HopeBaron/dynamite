@@ -8,7 +8,7 @@ from strawberry.experimental import pydantic
 from dynamite import models, errors
 from dynamite.errors import DynamiteErrorTypes
 from dynamite.gql.dataloaders import report_loader, detail_loader
-from dynamite.models import Query
+from dynamite.models import Query, Detail, Report
 # === Scalers ===
 from dynamite.transformer import SqlTransformer
 
@@ -62,13 +62,13 @@ class DetailType:
 
     @strawberry.field
     async def references(self) -> List["DetailType"]:
-        prop = await detail_loader.load(self.id)
-        return await prop.references.to_list()
+        detail: Detail = await detail_loader.load(self.id)
+        return await detail.references.to_list()
 
     @strawberry.field
     async def refers_to(self) -> Optional["DetailType"]:
-        prop = await detail_loader.load(self.id)
-        return prop.refers_to
+        detail: Detail = await detail_loader.load(self.id)
+        return await detail.fetched_refers_to()
 
 
 @pydantic.type(models.Topic)
@@ -128,7 +128,7 @@ class ReportType:
 
     @strawberry.field
     async def query(self) -> Optional[QueryType]:
-        loader = await report_loader.load(self.id)
-        transformer = await SqlTransformer.from_report(loader)
+        loader: Report = await report_loader.load(self.id)
+        transformer: SqlTransformer = await SqlTransformer.from_report(loader)
         (query, values) = await transformer.transform()
         return Query(select=query, values=values)
