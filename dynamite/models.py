@@ -5,9 +5,10 @@ import bcrypt
 import pymongo
 from beanie import Document, Link, PydanticObjectId
 from beanie.odm.operators.find.comparison import In
+from beanie.odm.queries.find import FindOne, FindMany
 from pydantic import BaseModel, validator, Field
 from pymongo import IndexModel
-from sql import Table
+from sql import Table, Column
 from typing_extensions import Self
 
 from dynamite.enums import DetailExpectedType, WhereOperations, ConditionGroupOperations
@@ -61,10 +62,18 @@ class Detail(DatabaseModel, EmbeddedDocument):
     refers_to: Optional[PydanticObjectId]
 
     @property
-    def topic(self):
+    def topic(self) -> FindOne["Topic"]:
         return Topic.has_detail(self.id)
 
-    async def sql(self):
+    async def fetched_refers_to(self):
+        if not self.refers_to:
+            return None
+        topic: Topic = await Topic.has_detail(self.refers_to)
+        if not topic:
+            return None
+        return topic.detail(self.refers_to)
+
+    async def sql(self) -> Column:
         entity = await self.topic
         table = entity.sql()
         column_name = self.database_name
@@ -77,7 +86,7 @@ class Detail(DatabaseModel, EmbeddedDocument):
         ]
 
     @property
-    def references(self):
+    def references(self) -> FindMany["Property"]:
         return Detail.find(Detail.refers_to.id == self.id)
 
 
@@ -87,14 +96,13 @@ class Topic(DatabaseModel, Document):
     details: List[Detail]
 
     @staticmethod
-    def has_detail(id: PydanticObjectId):
+    def has_detail(id: PydanticObjectId) -> FindOne["Topic"]:
         return Topic.find_one(In(Topic.details.id, [id]))
 
+    def detail(self, item) -> Detail:
+        return next(filter(lambda detail: detail.id == item, self.details))
 
-    def detail(self, item):
-        return [value for value in self.details if value.id == item][0]
-
-    def sql(self):
+    def sql(self) -> Table:
         return Table(self.database_name)
 
     class Settings:
@@ -128,7 +136,7 @@ class ConditionGroup(EmbeddedDocument):
 
     _sort_conditions = validator('conditions', allow_reuse=True)(sort_by_index)
 
-    async def as_details(self):
+    async def as_details(self) -> List[Detail]:
         return [await condition.as_detail() for condition in self.conditions]
 
 
@@ -136,16 +144,16 @@ class ReportColumn(DatabaseModel, EmbeddedDocument):
     index: int = 0
     detail: PydanticObjectId
 
-    async def sql(self):
-        prop = await self.fetched_detail
-        return prop.sql()
+    async def sql(self) -> Column:
+        detail = await self.fetched_detail
+        return await detail.sql()
 
     @property
-    def fetched_topic(self):
+    def fetched_topic(self) -> FindOne[Topic]:
         return Topic.has_detail(self.detail)
 
     @property
-    async def fetched_detail(self):
+    async def fetched_detail(self) -> Detail:
         entity = await self.fetched_topic
         return entity.detail(self.detail)
 
