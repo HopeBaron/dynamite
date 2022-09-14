@@ -2,7 +2,6 @@ import dataclasses
 from functools import reduce
 from typing import List, Dict
 
-from numpy.core.defchararray import lower
 from pydantic import BaseModel
 from sql import Column, Table, Expression
 from sql.operators import Or, And
@@ -81,7 +80,7 @@ class SqlTransformer(BaseModel):
         if type is DetailExpectedType.NUMBER:
             return float(condition.value[0])
         if type is DetailExpectedType.BOOLEAN:
-            return lower(condition.value[0]) == "true"
+            return condition.value[0].lower() == "true"
         return condition.value
 
     async def append_simple_conditions(self, group: ConditionGroup):
