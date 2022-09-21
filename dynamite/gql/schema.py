@@ -3,17 +3,25 @@ from beanie import PydanticObjectId
 from beanie.odm.operators.find.comparison import In
 from strawberry.types import Info
 
+from dynamite import enums
 from dynamite.auth import Auth
 from dynamite.gql.input import TopicInput, UserInput, ConditionGroupInput, ReportInput
 from dynamite.gql.permissions import IsAuthenticated, IsOrganizationUser
 from dynamite.gql.types import UserType, LoginSuccess, TopicType, ObjectId, ReportType, DynamiteResult, \
-    DynamiteErrorType
+    DynamiteErrorType, PermittedOperation
 from dynamite.models import Report, User, Topic, Session
 from dynamite.utils import *
 
 
 @strawberry.type
 class Query:
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    def operations(self) -> List[PermittedOperation]:
+        return [PermittedOperation(key, value) for key, value in enums.operations]
+
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    def operation(self, type: enums.DetailExpectedType):
+        return PermittedOperation(type, enums.operations[type])
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def user(self, document_id: PydanticObjectId) -> UserType | None:
@@ -58,7 +66,7 @@ class Mutation:
             user: User = await User.create_user(input.username, input.password)
             return UserType.from_pydantic(user)
         except DynamiteError as error:
-            return DynamiteErrorType(code= error.code, message=error.message)
+            return DynamiteErrorType(code=error.code, message=error.message)
 
     @strawberry.mutation
     async def authenticate_user(self, username: str, password: str) -> DynamiteResult[LoginSuccess]:
@@ -79,6 +87,7 @@ class Mutation:
             return await topic.save()
         except DynamiteError as error:
             return DynamiteErrorType(code=error.code, message=error.message)
+
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_report(self, input: ReportInput, info: Info) -> DynamiteResult[ReportType]:
         try:
@@ -96,7 +105,6 @@ class Mutation:
             return await report.save()
         except DynamiteError as error:
             return DynamiteErrorType(code=error.code, message=error.message)
-
 
 
 schema = strawberry.Schema(Query, Mutation, scalar_overrides={
