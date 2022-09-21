@@ -17,11 +17,11 @@ from dynamite.utils import *
 class Query:
     @strawberry.field(permission_classes=[IsAuthenticated])
     def operations(self) -> List[PermittedOperation]:
-        return [PermittedOperation(key, value) for key, value in enums.operations]
+        return [PermittedOperation(type=key, operations=value) for key, value in enums.operations]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     def operation(self, type: enums.DetailExpectedType):
-        return PermittedOperation(type, enums.operations[type])
+        return PermittedOperation(type=type, operations=enums.operations[type])
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def user(self, document_id: PydanticObjectId) -> UserType | None:
