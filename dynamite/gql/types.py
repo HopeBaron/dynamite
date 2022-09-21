@@ -6,6 +6,7 @@ from strawberry import auto, LazyType
 from strawberry.experimental import pydantic
 
 from dynamite import models, errors
+from dynamite.enums import DetailExpectedType, WhereOperations
 from dynamite.errors import DynamiteErrorTypes
 from dynamite.gql.dataloaders import report_loader, detail_loader
 from dynamite.models import Query, Detail, Report
@@ -52,7 +53,10 @@ class LoginSuccess:
 
 
 # === Domain models ===
-
+@strawberry.type
+class PermittedOperation:
+    type: DetailExpectedType
+    operations: List[WhereOperations]
 @pydantic.type(models.Detail)
 class DetailType:
     id: ObjectId
