@@ -17,7 +17,7 @@ from dynamite.utils import *
 class Query:
     @strawberry.field(permission_classes=[IsAuthenticated])
     def operations(self) -> List[PermittedOperation]:
-        return [PermittedOperation(type=key, operations=value) for key, value in enums.operations]
+        return [PermittedOperation(type=key, operations=value) for key, value in enums.operations.items()]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     def operation(self, type: enums.DetailExpectedType) -> PermittedOperation:

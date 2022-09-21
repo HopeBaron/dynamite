@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Dict, List
 
 import strawberry
 
@@ -37,7 +38,7 @@ class ColumnJoins(Enum):
     INNER = "INNER JOIN"
 
 
-operations = {
+operations: Dict[DetailExpectedType, List[WhereOperations]] = {
     DetailExpectedType.NUMBER: [
         WhereOperations.EQ,
         WhereOperations.GT,
