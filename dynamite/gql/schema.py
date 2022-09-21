@@ -20,7 +20,7 @@ class Query:
         return [PermittedOperation(type=key, operations=value) for key, value in enums.operations]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
-    def operation(self, type: enums.DetailExpectedType):
+    def operation(self, type: enums.DetailExpectedType) -> PermittedOperation:
         return PermittedOperation(type=type, operations=enums.operations[type])
 
     @strawberry.field(permission_classes=[IsAuthenticated])
